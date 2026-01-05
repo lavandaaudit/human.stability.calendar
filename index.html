@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<title>Ibonarium Calendar</title>
+
+<!-- GOOGLE FONTS -->
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=IBM+Plex+Serif:wght@400;600&family=Playfair+Display:wght@400;600&family=Inter:wght@400;600&family=Cinzel:wght@400;600&family=Cormorant+Garamond:wght@400;600&family=Orbitron:wght@400;600&family=Source+Serif+4:wght@400;600&family=Syne:wght@400;600&family=EB+Garamond:wght@400;600&family=Unbounded:wght@400;600&family=Crimson+Pro:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; background:#000; color:#cfefff; font-family:'Space Grotesk',sans-serif; overflow:hidden; }
+canvas { position:fixed; inset:0; z-index:0; }
+
+.panel { position:relative; z-index:1; padding:20px; max-width:1200px; margin:0 auto; }
+
+.date-panel { text-align:center; margin-bottom:20px; }
+.date-panel .today { font-size:28px; line-height:1.2; }
+.date-panel .days-since { font-size:16px; opacity:0.6; margin-top:6px; }
+
+.calendar { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; justify-items:center; margin-bottom:20px; }
+.calendar div { padding:10px 6px; font-size:16px; cursor:pointer; border-radius:4px; transition:0.2s; }
+.calendar div:hover { background: rgba(77,210,255,0.2); }
+.calendar .today { background:#4dd2ff; color:#000; font-weight:600; }
+
+.controls { text-align:center; margin-bottom:20px; }
+.controls select { padding:6px 10px; border-radius:4px; background:#000; color:#4dd2ff; border:1px solid #4dd2ff; }
+
+.holidays { text-align:center; margin-top:10px; font-size:14px; opacity:0.8; }
+.holidays ul { list-style:none; margin-top:6px; }
+.holidays li { margin-bottom:4px; }
+
+@media(max-width:600px) {
+  .calendar div { padding:8px 4px; font-size:14px; }
+  .date-panel .today { font-size:22px; }
+}
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div class="panel">
+
+  <div class="date-panel">
+    <div class="today" id="today">Loading...</div>
+    <div class="days-since" id="daysSince">Calculating...</div>
+  </div>
+
+  <div class="controls">
+    <select id="monthSelect"></select>
+    <select id="yearSelect"></select>
+    <select id="countrySelect">
+      <option value="UA">Україна</option>
+      <option value="US">США</option>
+      <option value="FR">Франція</option>
+      <option value="DE">Німеччина</option>
+      <option value="JP">Японія</option>
+    </select>
+  </div>
+
+  <div class="calendar" id="calendar"></div>
+
+  <div class="holidays" id="holidays"><ul></ul></div>
+
+</div>
+
+<script>
+// ===== OFF-GRID STARFIELD =====
+const canvas = document.getElementById("stars");
+const ctx = canvas.getContext("2d");
+let W,H,stars=[];
+function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; stars=Array.from({length:160},()=>({x:Math.random()*W, y:Math.random()*H, z:Math.random()*W})); }
+resize(); window.addEventListener("resize",resize);
+function render(){
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,W,H); ctx.fillStyle="#4dd2ff";
+  for(let s of stars){
+    s.z-=0.25; if(s.z<=0)s.z=W;
+    const k=128/s.z, x=(s.x-W/2)*k+W/2, y=(s.y-H/2)*k+H/2;
+    if(x>0&&x<W&&y>0&&y<H){ const size=(1-s.z/W)*2; ctx.fillRect(x,y,size,size);}
+  }
+  requestAnimationFrame(render);
+}
+render();
+
+// ===== DATE & DAYS SINCE 1 AD =====
+const todayEl = document.getElementById("today");
+const daysEl = document.getElementById("daysSince");
+
+function updateDate(){
+  const today = new Date();
+  todayEl.textContent = today.toLocaleDateString('uk-UA',{weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  // дні від 1 січня 1
+  const start = new Date(1,0,1);
+  const diff = today - start;
+  const days = Math.floor(diff / (1000*60*60*24));
+  daysEl.textContent = `Днів від Нової Ери: ${days}`;
+}
+updateDate();
+
+// ===== CALENDAR =====
+const monthSelect = document.getElementById("monthSelect");
+const yearSelect = document.getElementById("yearSelect");
+const calendarEl = document.getElementById("calendar");
+
+const months = ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
+
+function populateSelects(){
+  months.forEach((m,i)=>{ const opt=document.createElement("option"); opt.value=i; opt.textContent=m; monthSelect.appendChild(opt); });
+  const thisYear = new Date().getFullYear();
+  for(let y=thisYear-10;y<=thisYear+10;y++){ const opt=document.createElement("option"); opt.value=y; opt.textContent=y; yearSelect.appendChild(opt); }
+  monthSelect.value = new Date().getMonth();
+  yearSelect.value = thisYear;
+}
+populateSelects();
+
+function drawCalendar(){
+  calendarEl.innerHTML="";
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+  const firstDay = new Date(year, month, 1).getDay(); // 0=нд
+  const daysInMonth = new Date(year, month+1,0).getDate();
+  const today = new Date();
+  for(let i=0;i<firstDay;i++){ const div=document.createElement("div"); calendarEl.appendChild(div);}
+  for(let d=1;d<=daysInMonth;d++){
+    const div=document.createElement("div"); div.textContent=d;
+    if(d===today.getDate() && month===today.getMonth() && year===today.getFullYear()) div.classList.add("today");
+    calendarEl.appendChild(div);
+  }
+}
+drawCalendar();
+monthSelect.addEventListener("change",drawCalendar);
+yearSelect.addEventListener("change",drawCalendar);
+
+// ===== HOLIDAYS FETCH =====
+const holidaysEl = document.getElementById("holidays").querySelector("ul");
+const countrySelect = document.getElementById("countrySelect");
+
+// Набір даних з Nager.Date (без API ключа)
+async function fetchHolidays(year, country){
+  try{
+    const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${country}`);
+    const data = await res.json();
+    holidaysEl.innerHTML="";
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0,10);
+    data.forEach(h=>{
+      if(h.date===todayStr){
+        const li=document.createElement("li");
+        li.textContent = `${h.localName} (${h.name})`;
+        holidaysEl.appendChild(li);
+      }
+    });
+  }catch(e){ holidaysEl.innerHTML="<li>Не вдалося завантажити свята</li>"; }
+}
+function updateHolidays(){ fetchHolidays(yearSelect.value, countrySelect.value); }
+updateHolidays();
+yearSelect.addEventListener("change",updateHolidays);
+countrySelect.addEventListener("change",updateHolidays);
+</script>
+
+</body>
+</html>
