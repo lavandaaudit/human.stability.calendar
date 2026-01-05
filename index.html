@@ -13,10 +13,10 @@ canvas {position:fixed; inset:0; z-index:0;}
 .panel {position:relative; z-index:1; max-width:800px; margin:0 auto; text-align:center; padding:20px;}
 
 .date-panel {margin-bottom:20px;}
-.date-panel .today {font-size:28px; line-height:1.2;}
-.date-panel .days-since {font-size:16px; opacity:0.6; margin-top:6px;}
+.date-panel .month-year {font-size:24px; margin-bottom:6px;}
+.date-panel .days-since {font-size:16px; opacity:0.6;}
 
-.calendar {display:grid; grid-template-columns:repeat(7,1fr); gap:4px; justify-items:center; margin:0 auto 20px;}
+.calendar {display:grid; grid-template-columns:repeat(7,1fr); gap:4px; justify-items:center; margin:10px auto;}
 .calendar div {padding:10px 6px; font-size:16px; cursor:pointer; border-radius:4px; transition:0.2s;}
 .calendar div:hover {background: rgba(77,210,255,0.2);}
 .calendar .today {background:#4dd2ff; color:#000; font-weight:600;}
@@ -27,9 +27,13 @@ canvas {position:fixed; inset:0; z-index:0;}
 .holidays ul {list-style:none; margin-top:6px; padding-left:10px;}
 .holidays li {margin-bottom:4px;}
 
+.nav-buttons {margin-bottom:10px;}
+.nav-buttons button {padding:6px 12px; margin:0 6px; cursor:pointer; background:#4dd2ff; border:none; color:#000; border-radius:4px; font-weight:600;}
+.nav-buttons button:hover {background:#00aaff;}
+
 @media(max-width:600px){
   .calendar div {padding:8px 4px; font-size:14px;}
-  .date-panel .today {font-size:22px;}
+  .date-panel .month-year {font-size:20px;}
 }
 </style>
 </head>
@@ -40,8 +44,13 @@ canvas {position:fixed; inset:0; z-index:0;}
 <div class="panel">
 
   <div class="date-panel">
-    <div class="today" id="today">Loading...</div>
+    <div class="month-year" id="monthYear">Loading...</div>
     <div class="days-since" id="daysSince">Calculating...</div>
+  </div>
+
+  <div class="nav-buttons">
+    <button id="prevMonth">&lt; Назад</button>
+    <button id="nextMonth">Вперед &gt;</button>
   </div>
 
   <div class="calendar" id="calendar"></div>
@@ -68,87 +77,97 @@ function render(){
 }
 render();
 
-// ===== DATE & DAYS SINCE 1 AD =====
-const todayEl = document.getElementById("today");
+// ===== DAYS SINCE 1 AD =====
 const daysEl = document.getElementById("daysSince");
-function updateDate(){
+function updateDaysSince(){
   const today = new Date();
-  todayEl.textContent = today.toLocaleDateString('uk-UA',{weekday:'long', year:'numeric', month:'long', day:'numeric'});
   const start = new Date(1,0,1);
   const diff = today - start;
   const days = Math.floor(diff / (1000*60*60*24));
   daysEl.textContent = `Днів від Нової Ери: ${days}`;
 }
-updateDate();
+updateDaysSince();
 
-// ===== CALENDAR 2026 =====
+// ===== CALENDAR =====
 const calendarEl = document.getElementById("calendar");
+const monthYearEl = document.getElementById("monthYear");
+let currentMonth = new Date().getMonth();
+const year = 2026;
 const months = ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
 
-let holidaysData = {}; // тут будемо зберігати динамічно підвантажені свята
+let holidaysGlobal = {}; // з Calendarific
 
-async function fetchHolidays(){
-  const url = 'https://date.nager.at/api/v3/PublicHolidays/2026/UA';
+const CALENDARIFIC_KEY = 'baa9dc110aa712sd3a9fa2a3dwb6c01d4c875950dc32vs';
+const COUNTRY = 'UA'; // або US для міжнародних свят
+
+async function fetchGlobalHolidays(){
   try{
+    const url = `https://calendarific.com/api/v2/holidays?api_key=${CALENDARIFIC_KEY}&country=${COUNTRY}&year=${year}`;
     const res = await fetch(url);
     const data = await res.json();
-    data.forEach(item=>{
-      holidaysData[item.date] = [item.localName, item.name];
+    data.response.holidays.forEach(item=>{
+      const date = item.date.iso;
+      if(!holidaysGlobal[date]) holidaysGlobal[date]=[];
+      holidaysGlobal[date].push(item.name);
     });
-  }catch(e){
-    console.error("Помилка підвантаження свят:", e);
-  }
+  }catch(e){console.error("Помилка підвантаження свят Calendarific:", e);}
 }
 
-function drawCalendar(year){
+function drawMonth(month){
   calendarEl.innerHTML="";
-  for(let m=0;m<12;m++){
-    const monthLabel = document.createElement("div");
-    monthLabel.classList.add("month-label");
-    monthLabel.textContent = months[m];
-    calendarEl.appendChild(monthLabel);
+  monthYearEl.textContent = `${months[month]} ${year}`;
 
-    const firstDay = new Date(year,m,1).getDay(); // 0=неділя
-    const daysInMonth = new Date(year,m+1,0).getDate();
+  const firstDay = new Date(year,month,1).getDay();
+  const daysInMonth = new Date(year,month+1,0).getDate();
 
-    for(let i=0;i<firstDay;i++){ const div=document.createElement("div"); calendarEl.appendChild(div); }
+  for(let i=0;i<firstDay;i++) calendarEl.appendChild(document.createElement("div"));
 
-    for(let d=1;d<=daysInMonth;d++){
-      const div = document.createElement("div");
-      div.textContent=d;
-      const dateStr = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-      if(dateStr===new Date().toISOString().split('T')[0]) div.classList.add("today");
-      div.addEventListener("click",()=>showHolidays(dateStr));
-      calendarEl.appendChild(div);
-    }
+  for(let d=1;d<=daysInMonth;d++){
+    const div = document.createElement("div");
+    div.textContent=d;
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(dateStr===new Date().toISOString().split('T')[0]) div.classList.add("today");
+    div.addEventListener("click",()=>showHolidays(dateStr));
+    calendarEl.appendChild(div);
   }
 }
 
-// ===== SHOW HOLIDAYS =====
 const holidaysEl = document.getElementById("holidays");
 function showHolidays(dateStr){
   holidaysEl.innerHTML="<ul></ul>";
   const ul = holidaysEl.querySelector("ul");
-  if(holidaysData[dateStr]){
-    holidaysData[dateStr].forEach(h=>{
-      const li=document.createElement("li");
-      li.textContent=h;
-      ul.appendChild(li);
-    });
-  } else {
+  let list = [];
+  if(holidaysGlobal[dateStr]) list.push(...holidaysGlobal[dateStr]);
+  if(list.length===0) list.push("Свят цього дня немає");
+  list.forEach(h=>{
     const li=document.createElement("li");
-    li.textContent="Свят цього дня немає";
+    li.textContent=h;
     ul.appendChild(li);
-  }
+  });
 }
+
+// ===== NAVIGATION =====
+document.getElementById("prevMonth").addEventListener("click",()=>{
+  currentMonth = (currentMonth+11)%12;
+  drawMonth(currentMonth);
+  showHolidays(`${year}-${String(currentMonth+1).padStart(2,'0')}-01`);
+});
+document.getElementById("nextMonth").addEventListener("click",()=>{
+  currentMonth = (currentMonth+1)%12;
+  drawMonth(currentMonth);
+  showHolidays(`${year}-${String(currentMonth+1).padStart(2,'0')}-01`);
+});
 
 // ===== INIT =====
 async function init(){
-  await fetchHolidays();
-  drawCalendar(2026);
-  showHolidays(new Date().toISOString().split('T')[0]);
+  await fetchGlobalHolidays();
+  drawMonth(currentMonth);
+  const today = new Date();
+  const todayStr = `${year}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  showHolidays(todayStr);
 }
 init();
 </script>
+
 </body>
 </html>
