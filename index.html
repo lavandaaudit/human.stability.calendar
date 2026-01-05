@@ -4,31 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ibonarium Calendar 2026</title>
+
+<!-- FONT -->
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+
 <style>
+/* ===== BASE ===== */
 * {margin:0; padding:0; box-sizing:border-box;}
-html,body {width:100%; height:100%; background:#000; color:#cfefff; font-family:'Space Grotesk',sans-serif; overflow:hidden;}
+html, body {width:100%; height:100%; background:#000; color:#cfefff; font-family:'Space Grotesk',sans-serif; overflow:hidden;}
 canvas {position:fixed; inset:0; z-index:0;}
 
+/* ===== PANEL ===== */
 .panel {position:relative; z-index:1; max-width:800px; margin:0 auto; text-align:center; padding:20px;}
 
 .date-panel {margin-bottom:20px;}
 .date-panel .month-year {font-size:24px; margin-bottom:6px;}
 .date-panel .days-since {font-size:16px; opacity:0.6;}
 
+/* ===== CALENDAR ===== */
 .calendar {display:grid; grid-template-columns:repeat(7,1fr); gap:4px; justify-items:center; margin:10px auto;}
 .calendar div {padding:10px 6px; font-size:16px; cursor:pointer; border-radius:4px; transition:0.2s;}
 .calendar div:hover {background: rgba(77,210,255,0.2);}
 .calendar .today {background:#4dd2ff; color:#000; font-weight:600;}
 
+/* ===== HOLIDAYS LIST ===== */
 .holidays {text-align:left; margin-top:10px; font-size:14px; opacity:0.9; max-height:200px; overflow-y:auto;}
 .holidays ul {list-style:none; margin-top:6px; padding-left:10px;}
 .holidays li {margin-bottom:4px;}
 
+/* ===== NAV BUTTONS ===== */
 .nav-buttons {margin-bottom:10px;}
 .nav-buttons button {padding:6px 12px; margin:0 6px; cursor:pointer; background:#4dd2ff; border:none; color:#000; border-radius:4px; font-weight:600;}
 .nav-buttons button:hover {background:#00aaff;}
 
+/* ===== RESPONSIVE ===== */
 @media(max-width:600px){
   .calendar div {padding:8px 4px; font-size:14px;}
   .date-panel .month-year {font-size:20px;}
@@ -82,6 +91,7 @@ let currentMonth = new Date().getMonth();
 const year = 2026;
 const months = ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
 
+// ===== DRAW MONTH =====
 function drawMonth(month){
   calendarEl.innerHTML="";
   monthYearEl.textContent=`${months[month]} ${year}`;
@@ -98,11 +108,13 @@ function drawMonth(month){
   }
 }
 
+// ===== SHOW HOLIDAYS =====
 const holidaysEl = document.getElementById("holidays");
 async function showHolidays(dateStr){
   holidaysEl.innerHTML="<ul></ul>";
   const ul = holidaysEl.querySelector("ul");
   try{
+    // !!! Змінити URL на свій бекенд або готовий API !!!
     const res = await fetch(`http://localhost:3000/holidays/${dateStr}`);
     const data = await res.json();
     data.holidays.forEach(h=>{
