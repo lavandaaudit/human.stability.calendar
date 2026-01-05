@@ -21,8 +21,6 @@ canvas {position:fixed; inset:0; z-index:0;}
 .calendar div:hover {background: rgba(77,210,255,0.2);}
 .calendar .today {background:#4dd2ff; color:#000; font-weight:600;}
 
-.month-label {grid-column:1/-1; font-weight:600; font-size:18px; margin:8px 0;}
-
 .holidays {text-align:left; margin-top:10px; font-size:14px; opacity:0.9; max-height:200px; overflow-y:auto;}
 .holidays ul {list-style:none; margin-top:6px; padding-left:10px;}
 .holidays li {margin-bottom:4px;}
@@ -95,49 +93,50 @@ let currentMonth = new Date().getMonth();
 const year = 2026;
 const months = ["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"];
 
-let holidaysGlobal = {}; // з Calendarific
-
+let holidaysGlobal = {}; // усі свята
 const CALENDARIFIC_KEY = 'baa9dc110aa712sd3a9fa2a3dwb6c01d4c875950dc32vs';
-const COUNTRY = 'UA'; // або US для міжнародних свят
+const COUNTRIES = ['US','GB','DE','FR','JP','UA']; // ключові країни
 
-async function fetchGlobalHolidays(){
-  try{
-    const url = `https://calendarific.com/api/v2/holidays?api_key=${CALENDARIFIC_KEY}&country=${COUNTRY}&year=${year}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    data.response.holidays.forEach(item=>{
-      const date = item.date.iso;
-      if(!holidaysGlobal[date]) holidaysGlobal[date]=[];
-      holidaysGlobal[date].push(item.name);
-    });
-  }catch(e){console.error("Помилка підвантаження свят Calendarific:", e);}
+// ===== FETCH HOLIDAYS FROM MULTIPLE COUNTRIES =====
+async function fetchAllHolidays(){
+  holidaysGlobal = {};
+  for(const country of COUNTRIES){
+    try{
+      const url = `https://calendarific.com/api/v2/holidays?api_key=${CALENDARIFIC_KEY}&country=${country}&year=${year}&type=public,religious,observance,optional`;
+      const res = await fetch(url);
+      const data = await res.json();
+      data.response.holidays.forEach(item=>{
+        const date = item.date.iso;
+        if(!holidaysGlobal[date]) holidaysGlobal[date]=[];
+        holidaysGlobal[date].push(`${item.name} (${country})`);
+      });
+    }catch(e){console.error("Помилка завантаження свят:", country, e);}
+  }
 }
 
+// ===== DRAW MONTH =====
 function drawMonth(month){
   calendarEl.innerHTML="";
   monthYearEl.textContent = `${months[month]} ${year}`;
-
-  const firstDay = new Date(year,month,1).getDay();
+  const firstDay = new Date(year,month,1).getDay(); // 0-неділя
   const daysInMonth = new Date(year,month+1,0).getDate();
-
   for(let i=0;i<firstDay;i++) calendarEl.appendChild(document.createElement("div"));
-
   for(let d=1;d<=daysInMonth;d++){
-    const div = document.createElement("div");
+    const div=document.createElement("div");
     div.textContent=d;
-    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dateStr=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     if(dateStr===new Date().toISOString().split('T')[0]) div.classList.add("today");
     div.addEventListener("click",()=>showHolidays(dateStr));
     calendarEl.appendChild(div);
   }
 }
 
+// ===== SHOW HOLIDAYS =====
 const holidaysEl = document.getElementById("holidays");
 function showHolidays(dateStr){
   holidaysEl.innerHTML="<ul></ul>";
   const ul = holidaysEl.querySelector("ul");
-  let list = [];
-  if(holidaysGlobal[dateStr]) list.push(...holidaysGlobal[dateStr]);
+  let list = holidaysGlobal[dateStr] || [];
   if(list.length===0) list.push("Свят цього дня немає");
   list.forEach(h=>{
     const li=document.createElement("li");
@@ -148,22 +147,22 @@ function showHolidays(dateStr){
 
 // ===== NAVIGATION =====
 document.getElementById("prevMonth").addEventListener("click",()=>{
-  currentMonth = (currentMonth+11)%12;
+  currentMonth=(currentMonth+11)%12;
   drawMonth(currentMonth);
   showHolidays(`${year}-${String(currentMonth+1).padStart(2,'0')}-01`);
 });
 document.getElementById("nextMonth").addEventListener("click",()=>{
-  currentMonth = (currentMonth+1)%12;
+  currentMonth=(currentMonth+1)%12;
   drawMonth(currentMonth);
   showHolidays(`${year}-${String(currentMonth+1).padStart(2,'0')}-01`);
 });
 
 // ===== INIT =====
 async function init(){
-  await fetchGlobalHolidays();
+  await fetchAllHolidays();
   drawMonth(currentMonth);
-  const today = new Date();
-  const todayStr = `${year}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const today=new Date();
+  const todayStr=`${year}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   showHolidays(todayStr);
 }
 init();
