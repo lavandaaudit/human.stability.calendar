@@ -12,15 +12,15 @@ html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter
 #stars{position:fixed;inset:0;z-index:0}
 #ui{position:relative;z-index:2;display:grid;grid-template-columns:420px 1fr;height:100%}
 
-#left{padding:18px;overflow-y:auto;font-size:14px}
-h1{font-size:16px;letter-spacing:3px;opacity:.7;margin-bottom:12px}
+#left{padding:18px;overflow-y:auto}
+h1{font-size:16px;letter-spacing:2px;opacity:.8;margin-bottom:12px}
 .section{margin-bottom:18px}
-.section h2{font-size:12px;opacity:.6;margin-bottom:6px}
+.section h2{font-size:12px;opacity:.7;margin-bottom:6px}
 
 .indicator{
 display:flex;justify-content:space-between;
 padding:6px 8px;margin-bottom:4px;
-font-size:13px;background:rgba(255,255,255,.04);
+font-size:13px;background:rgba(255,255,255,.05);
 border-left:4px solid #333
 }
 .green{border-color:#00ff88;color:#9affd1}
@@ -41,13 +41,10 @@ grid-template-columns:repeat(3,1fr);
 grid-template-rows:repeat(4,1fr);
 gap:10px;
 background:#0b0f14;
-overflow:auto;
 }
 canvas.chart{
 background:rgba(255,255,255,.03);
-border:1px solid rgba(255,255,255,.08);
-width:100% !important;
-height:150px !important;
+border:1px solid rgba(255,255,255,.08)
 }
 </style>
 </head>
@@ -69,18 +66,10 @@ height:150px !important;
 </div>
 
 <div id="charts">
-<canvas class="chart" id="chart0"></canvas>
-<canvas class="chart" id="chart1"></canvas>
-<canvas class="chart" id="chart2"></canvas>
-<canvas class="chart" id="chart3"></canvas>
-<canvas class="chart" id="chart4"></canvas>
-<canvas class="chart" id="chart5"></canvas>
-<canvas class="chart" id="chart6"></canvas>
-<canvas class="chart" id="chart7"></canvas>
-<canvas class="chart" id="chart8"></canvas>
-<canvas class="chart" id="chart9"></canvas>
-<canvas class="chart" id="chart10"></canvas>
-<canvas class="chart" id="chart11"></canvas>
+<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
+<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
+<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
+<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
 </div>
 </div>
 
@@ -91,26 +80,26 @@ height:150px !important;
 const sc=document.getElementById("stars"),ctx=sc.getContext("2d");
 let stars=[];
 function resize(){
-    sc.width=innerWidth; sc.height=innerHeight;
-    stars=Array.from({length:500},()=>({
-        x:Math.random()*innerWidth-innerWidth/2,
-        y:Math.random()*innerHeight-innerHeight/2,
-        z:Math.random()*innerWidth
-    }))
+sc.width=innerWidth;sc.height=innerHeight;
+stars=Array.from({length:500},()=>({
+x:Math.random()*innerWidth-innerWidth/2,
+y:Math.random()*innerHeight-innerHeight/2,
+z:Math.random()*innerWidth
+}))
 }
 window.onresize=resize;resize();
 function draw(){
-    ctx.fillStyle="#000";ctx.fillRect(0,0,sc.width,sc.height);
-    ctx.translate(sc.width/2,sc.height/2);
-    stars.forEach(s=>{
-        s.z-=1.5;if(s.z<1)s.z=sc.width;
-        const k=140/s.z,px=s.x*k,py=s.y*k;
-        if(px>-sc.width/2&&px<sc.width/2){
-            ctx.fillStyle="#fff";ctx.fillRect(px,py,1,1)
-        }
-    });
-    ctx.setTransform(1,0,0,1,0,0);
-    requestAnimationFrame(draw)
+ctx.fillStyle="#000";ctx.fillRect(0,0,sc.width,sc.height);
+ctx.translate(sc.width/2,sc.height/2);
+stars.forEach(s=>{
+s.z-=1.5;if(s.z<1)s.z=sc.width;
+const k=140/s.z,px=s.x*k,py=s.y*k;
+if(px>-sc.width/2&&px<sc.width/2){
+ctx.fillStyle="#fff";ctx.fillRect(px,py,1,1)
+}
+});
+ctx.setTransform(1,0,0,1,0,0);
+requestAnimationFrame(draw)
 }
 draw();
 
@@ -118,111 +107,86 @@ draw();
 const values=[];
 function level(v){return v<0.4?"green":v<0.7?"yellow":"red"}
 function add(el,name,val){
-    values.push(val);
-    const d=document.createElement("div");
-    d.className=`indicator ${level(val)}`;
-    d.innerHTML=`<span>${name}</span><span>${(val*100).toFixed(0)}%</span>`;
-    el.appendChild(d)
+values.push(val);
+const d=document.createElement("div");
+d.className=`indicator ${level(val)}`;
+d.innerHTML=`<span>${name}</span><span>${(val*100).toFixed(1)}</span>`;
+el.appendChild(d)
 }
 
-/* CHARTS SETUP */
+/* CHARTS */
 const charts=[];
 const buffers=Array.from({length:12},()=>[]);
-for(let i=0;i<12;i++){
-    const ctx=document.getElementById("chart"+i).getContext("2d");
-    charts[i]=new Chart(ctx,{
-        type:"line",
-        data:{labels:[],datasets:[{data:[],borderColor:"#00ffcc",backgroundColor:"rgba(0,255,204,0.2)",borderWidth:2,fill:true}]},
-        options:{
-            animation:false,
-            plugins:{legend:{display:false}},
-            responsive:true,
-            maintainAspectRatio:false,
-            scales:{x:{display:false},y:{display:true,ticks:{color:"white"}}}
-        }
-    });
+document.querySelectorAll(".chart").forEach((c,i)=>{
+charts[i]=new Chart(c,{
+type:"line",
+data:{labels:[],datasets:[{data:[],borderWidth:2,borderColor:'#00ffff',backgroundColor:'rgba(0,255,255,0.2)'}]},
+options:{
+responsive:true,
+animation:false,
+plugins:{legend:{display:false}},
+scales:{x:{display:false},y:{display:true,ticks:{color:'white'}},yAxes:[{ticks:{color:'white'}}]}
 }
-
+})
+});
 function pushChart(i,val){
-    const b=buffers[i];
-    b.push(val);if(b.length>60)b.shift();
-    charts[i].data.labels=b.map(()=> "");
-    charts[i].data.datasets[0].data=b;
-    charts[i].update();
+const b=buffers[i];
+b.push(val);if(b.length>60)b.shift();
+charts[i].data.labels=b.map(()=> "");
+charts[i].data.datasets[0].data=b;
+charts[i].update();
 }
 
-/* API DATA FETCHING */
+/* FETCH & CALC */
 async function cosmos(){
-    try{
-        const sw=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
-        const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-        const l=sw.at(-1);
-        const v1=l[2]/800; 
-        const v2=l[1]/50;
-        const v3=Math.abs(l[4])/10;
-        const v4=kp.at(-1)[1]/9;
-        add(cosmosEl,"Solar Wind Speed",v1); pushChart(0,v1);
-        add(cosmosEl,"Solar Wind Density",v2); pushChart(1,v2);
-        add(cosmosEl,"IMF Bz",v3); pushChart(2,v3);
-        add(cosmosEl,"Kp Index",v4); pushChart(3,v4);
-    } catch(e){console.log("COSMOS API error", e);}
+const sw=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
+const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
+const l=sw.at(-1);const v1=l[2]/800;const v2=l[1]/50;const v3=Math.abs(l[4])/10;const v4=kp.at(-1)[1]/9;
+add(cosmosEl,"Solar Wind Speed",v1);pushChart(0,v1);
+add(cosmosEl,"Solar Wind Density",v2);pushChart(1,v2);
+add(cosmosEl,"IMF Bz",v3);pushChart(2,v3);
+add(cosmosEl,"Kp Index",v4);pushChart(3,v4);
 }
 
 async function planet(){
-    try{
-        const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-        const v5=Math.random();
-        const v6=Math.random();
-        const v7=Math.min(eq.features.length/20,1);
-        const v8=Math.random();
-        add(planetEl,"Pressure Anomaly",v5); pushChart(4,v5);
-        add(planetEl,"Wind Anomaly",v6); pushChart(5,v6);
-        add(planetEl,"EQ Count",v7); pushChart(6,v7);
-        add(planetEl,"Seismic Energy",v8); pushChart(7,v8);
-    } catch(e){console.log("PLANET API error", e);}
+const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
+const v5=Math.random();const v6=Math.random();
+const v7=Math.min(eq.features.length/20,1);const v8=Math.random();
+add(planetEl,"Pressure Anomaly",v5);pushChart(4,v5);
+add(planetEl,"Wind Anomaly",v6);pushChart(5,v6);
+add(planetEl,"EQ Count",v7);pushChart(6,v7);
+add(planetEl,"Seismic Energy",v8);pushChart(7,v8);
 }
 
 async function economy(){
-    try{
-        const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
-        const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
-        const v9=p.bitcoin.usd/100000;
-        const v10=p.ethereum.usd/10000;
-        const v11=fg.data[0].value/100;
-        const v12=(v9+v10+v11)/3;
-        add(economyEl,"Bitcoin",v9); pushChart(8,v9);
-        add(economyEl,"Ethereum",v10); pushChart(9,v10);
-        add(economyEl,"Fear & Greed",v11); pushChart(10,v11);
-        add(economyEl,"Market Stress",v12); pushChart(11,v12);
-    } catch(e){console.log("ECONOMY API error", e);}
+const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
+const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+const v9=p.bitcoin.usd/100000;const v10=p.ethereum.usd/10000;
+const v11=fg.data[0].value/100;const v12=(v9+v10+v11)/3;
+add(economyEl,"Bitcoin",v9);pushChart(8,v9);
+add(economyEl,"Ethereum",v10);pushChart(9,v10);
+add(economyEl,"Fear & Greed",v11);pushChart(10,v11);
+add(economyEl,"Market Stress",v12);pushChart(11,v12);
 }
 
 function social(){
-    ["Conflict Tone","Event Density","News Intensity","Reddit Stress","Global Stress"]
-    .forEach(n=>{
-        const v=Math.random();
-        add(socialEl,n,v)
-    });
+["Conflict Tone","Event Density","News Intensity","Reddit Stress","Global Stress"]
+.forEach(n=>add(socialEl,n,Math.random()));
 }
 
 function system(){
-    const avg=values.reduce((a,b)=>a+b,0)/values.length;
-    const s=document.getElementById("system");
-    s.className=level(avg);
-    s.textContent="SYSTEM STATE: "+(avg<0.4?"STABLE":avg<0.7?"TRANSITION":"CRITICAL");
+const avg=values.reduce((a,b)=>a+b,0)/values.length;
+const s=document.getElementById("system");
+s.className=level(avg);
+s.textContent="SYSTEM STATE: "+(avg<0.4?"STABLE":avg<0.7?"TRANSITION":"CRITICAL");
 }
 
 /* INIT LOOP */
 async function tick(){
-    values.length=0;
-    cosmosEl.innerHTML=planetEl.innerHTML=economyEl.innerHTML=socialEl.innerHTML="";
-    await cosmos();
-    await planet();
-    await economy();
-    social();
-    system();
+values.length=0;
+cosmosEl.innerHTML=planetEl.innerHTML=economyEl.innerHTML=socialEl.innerHTML="";
+await cosmos();await planet();await economy();social();system();
 }
-
 const cosmosEl=document.getElementById("cosmos");
 const planetEl=document.getElementById("planet");
 const economyEl=document.getElementById("economy");
