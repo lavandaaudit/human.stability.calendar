@@ -7,39 +7,26 @@
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{
-  width:100%;height:100%;
-  background:#000;color:#cfefff;
-  font-family:Inter,monospace;
-  overflow:hidden
-}
+html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden}
 #stars{position:fixed;inset:0;z-index:0}
 #ui{position:relative;z-index:2;display:flex;height:100%}
 #left{padding:18px;width:420px;overflow-y:auto}
-
 h1{font-size:16px;letter-spacing:2px;opacity:.8;margin-bottom:12px}
 .section{margin-bottom:18px}
 .section h2{font-size:12px;opacity:.7;margin-bottom:6px}
-
 .indicator{
-  display:flex;justify-content:space-between;
-  padding:6px 8px;margin-bottom:4px;
-  font-size:13px;
-  background:rgba(255,255,255,.05);
-  border-left:4px solid #333
+display:flex;justify-content:space-between;
+padding:6px 8px;margin-bottom:4px;
+font-size:13px;background:rgba(255,255,255,.05);
+border-left:4px solid #333
 }
 .green{border-color:#00ff88;color:#9affd1}
 .yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite}
 .red{border-color:#ff3344;color:#ffb3b8;animation:pulse 1s infinite}
-
-@keyframes pulse{
-  0%{opacity:.6}50%{opacity:1}100%{opacity:.6}
-}
-
+@keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
 #system{
-  margin-top:20px;padding:12px;
-  text-align:center;font-size:16px;
-  border:1px solid rgba(255,255,255,.25)
+margin-top:20px;padding:12px;text-align:center;
+font-size:16px;border:1px solid rgba(255,255,255,.25)
 }
 </style>
 </head>
@@ -50,18 +37,16 @@ h1{font-size:16px;letter-spacing:2px;opacity:.8;margin-bottom:12px}
 <div id="ui">
   <div id="left">
     <h1>IBONARIUM · STABILITY MATRIX</h1>
-
     <div class="section"><h2>COSMOS</h2><div id="cosmos"></div></div>
     <div class="section"><h2>PLANET</h2><div id="planet"></div></div>
     <div class="section"><h2>ECONOMY</h2><div id="economy"></div></div>
     <div class="section"><h2>SOCIAL</h2><div id="social"></div></div>
-
     <div id="system"></div>
   </div>
 </div>
 
 <script>
-/* ===== STARFIELD ===== */
+// STARFIELD (без змін)
 const sc=document.getElementById("stars"),ctx=sc.getContext("2d");
 let stars=[];
 function resize(){
@@ -73,7 +58,6 @@ function resize(){
   }));
 }
 window.onresize=resize; resize();
-
 function draw(){
   ctx.fillStyle="#000"; ctx.fillRect(0,0,sc.width,sc.height);
   ctx.save(); ctx.translate(sc.width/2,sc.height/2);
@@ -86,13 +70,8 @@ function draw(){
 }
 draw();
 
-/* ===== CORE ===== */
+// CORE
 const values=[];
-const cosmosEl=cosmos;
-const planetEl=planet;
-const economyEl=economy;
-const socialEl=social;
-
 function level(v){return v<0.4?"green":v<0.7?"yellow":"red";}
 function add(el,name,val){
   values.push(val);
@@ -102,7 +81,9 @@ function add(el,name,val){
   el.appendChild(d);
 }
 
-/* ===== COSMOS ===== */
+const cosmosEl=cosmos,planetEl=planet,economyEl=economy,socialEl=social;
+
+// COSMOS (РОЗШИРЕНО)
 async function cosmos(){
   const plasma=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
   const mag=await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
@@ -112,40 +93,52 @@ async function cosmos(){
   const aurora=await fetch("https://services.swpc.noaa.gov/products/aurora-forecast.json").then(r=>r.json());
 
   add(cosmosEl,"Solar Wind Speed",Math.min(plasma.at(-1)[1]/1000,1));
+  add(cosmosEl,"Solar Wind Density",Math.min(plasma.at(-1)[2]/20,1));
   add(cosmosEl,"IMF Bz",Math.min(Math.abs(mag.at(-1)[4])/20,1));
-  add(cosmosEl,"Kp Index",Math.min(kp.at(-1)[1]/9,1));
-  add(cosmosEl,"Solar X-ray",Math.min(xray.at(-1).flux,1e-3)*1000);
+  add(cosmosEl,"Planetary Kp",Math.min(kp.at(-1)[1]/9,1));
+  add(cosmosEl,"Solar X-ray Flux",Math.min(xray.at(-1).flux/1e-4,1));
   add(cosmosEl,"Proton Flux",Math.min(proton.at(-1)["10MeV"]/100,1));
-  add(cosmosEl,"Aurora Prob.",Math.min(aurora.coordinates[0].probability/100,1));
+  add(cosmosEl,"Aurora Probability",Math.min(aurora.coordinates[0].probability/100,1));
 }
 
-/* ===== PLANET ===== */
+// PLANET (РОЗШИРЕНО)
 async function planet(){
   const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-  const volcano=await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml").then(r=>r.text());
+  const volcanoRSS=await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml").then(r=>r.text());
 
-  add(planetEl,"Earthquakes (1h)",Math.min(eq.features.length/20,1));
-  add(planetEl,"Volcanic Alerts",Math.min((volcano.match(/<item>/g)||[]).length/10,1));
+  const eqCount=eq.features.length;
+  const volcanoCount=(volcanoRSS.match(/<item>/g)||[]).length;
+
+  add(planetEl,"EQ Count (hour)",Math.min(eqCount/20,1));
+  add(planetEl,"Volcanic Alerts",Math.min(volcanoCount/10,1));
+  add(planetEl,"Climate Noise",Math.min((eqCount+volcanoCount)/25,1));
 }
 
-/* ===== ECONOMY ===== */
+// ECONOMY (без змін)
 async function economy(){
-  const price=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
+  const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
   const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
-
-  add(economyEl,"Bitcoin",Math.min(price.bitcoin.usd/100000,1));
-  add(economyEl,"Ethereum",Math.min(price.ethereum.usd/10000,1));
+  add(economyEl,"Bitcoin",Math.min(p.bitcoin.usd/100000,1));
+  add(economyEl,"Ethereum",Math.min(p.ethereum.usd/10000,1));
   add(economyEl,"Fear & Greed",fg.data[0].value/100);
 }
 
-/* ===== SOCIAL ===== */
+// SOCIAL (без змін)
 async function social(){
-  const wiki=await fetch("https://en.wikipedia.org/wiki/Special:RecentChanges?feed=atom").then(r=>r.text());
-  const count=(wiki.match(/<entry>/g)||[]).length;
-  add(socialEl,"Wiki Activity",Math.min(count/50,1));
+  const urls=[
+    "https://www.reddit.com/r/worldnews/.json?limit=100",
+    "https://www.reddit.com/r/news/.json?limit=100"
+  ];
+  let titles="";
+  for(const u of urls){
+    const d=await fetch(u).then(r=>r.json());
+    titles+=d.data.children.map(a=>a.data.title).join(" ");
+  }
+  add(socialEl,"News Intensity",Math.min(titles.split(/\s+/).length/1000,1));
+  add(socialEl,"Conflict Tone",Math.min((titles.match(/war|attack|crisis|conflict/gi)||[]).length/50,1));
 }
 
-/* ===== SYSTEM ===== */
+// SYSTEM
 function systemState(){
   const avg=values.reduce((a,b)=>a+b,0)/values.length;
   system.className=level(avg);
@@ -158,6 +151,7 @@ async function tick(){
   await cosmos(); await planet(); await economy(); await social();
   systemState();
 }
+
 tick(); setInterval(tick,60000);
 </script>
 </body>
