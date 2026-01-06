@@ -7,8 +7,12 @@
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden}
-
+html,body{
+  width:100%;height:100%;
+  background:#000;color:#cfefff;
+  font-family:Inter,monospace;
+  overflow:hidden
+}
 #stars{position:fixed;inset:0;z-index:0}
 #ui{position:relative;z-index:2;display:flex;height:100%}
 #left{padding:18px;width:420px;overflow-y:auto}
@@ -18,181 +22,143 @@ h1{font-size:16px;letter-spacing:2px;opacity:.8;margin-bottom:12px}
 .section h2{font-size:12px;opacity:.7;margin-bottom:6px}
 
 .indicator{
-display:flex;justify-content:space-between;
-padding:6px 8px;margin-bottom:4px;
-font-size:13px;background:rgba(255,255,255,.05);
-border-left:4px solid #333
+  display:flex;justify-content:space-between;
+  padding:6px 8px;margin-bottom:4px;
+  font-size:13px;
+  background:rgba(255,255,255,.05);
+  border-left:4px solid #333
 }
 .green{border-color:#00ff88;color:#9affd1}
 .yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite}
 .red{border-color:#ff3344;color:#ffb3b8;animation:pulse 1s infinite}
 
-@keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
+@keyframes pulse{
+  0%{opacity:.6}50%{opacity:1}100%{opacity:.6}
+}
 
 #system{
-margin-top:20px;padding:12px;text-align:center;
-font-size:16px;border:1px solid rgba(255,255,255,.25)
+  margin-top:20px;padding:12px;
+  text-align:center;font-size:16px;
+  border:1px solid rgba(255,255,255,.25)
 }
 </style>
 </head>
-<body>
 
+<body>
 <canvas id="stars"></canvas>
 
 <div id="ui">
-<div id="left">
-<h1>IBONARIUM · STABILITY MATRIX</h1>
+  <div id="left">
+    <h1>IBONARIUM · STABILITY MATRIX</h1>
 
-<div class="section"><h2>COSMOS</h2><div id="cosmos"></div></div>
-<div class="section"><h2>PLANET</h2><div id="planet"></div></div>
-<div class="section"><h2>ECONOMY</h2><div id="economy"></div></div>
-<div class="section"><h2>SOCIAL</h2><div id="social"></div></div>
+    <div class="section"><h2>COSMOS</h2><div id="cosmos"></div></div>
+    <div class="section"><h2>PLANET</h2><div id="planet"></div></div>
+    <div class="section"><h2>ECONOMY</h2><div id="economy"></div></div>
+    <div class="section"><h2>SOCIAL</h2><div id="social"></div></div>
 
-<div id="system"></div>
-</div>
+    <div id="system"></div>
+  </div>
 </div>
 
 <script>
-// STARFIELD
+/* ===== STARFIELD ===== */
 const sc=document.getElementById("stars"),ctx=sc.getContext("2d");
 let stars=[];
 function resize(){
-sc.width=innerWidth;sc.height=innerHeight;
-stars=Array.from({length:500},()=>({
-x:Math.random()*innerWidth-innerWidth/2,
-y:Math.random()*innerHeight-innerHeight/2,
-z:Math.random()*innerWidth
-}));
+  sc.width=innerWidth; sc.height=innerHeight;
+  stars=Array.from({length:500},()=>({
+    x:Math.random()*innerWidth-innerWidth/2,
+    y:Math.random()*innerHeight-innerHeight/2,
+    z:Math.random()*innerWidth
+  }));
 }
-window.onresize=resize;resize();
+window.onresize=resize; resize();
+
 function draw(){
-ctx.fillStyle="#000";ctx.fillRect(0,0,sc.width,sc.height);
-ctx.save();ctx.translate(sc.width/2,sc.height/2);
-stars.forEach(s=>{
-s.z-=1.5;if(s.z<1)s.z=sc.width;
-const k=140/s.z,px=s.x*k,py=s.y*k;
-ctx.fillStyle="#fff";ctx.fillRect(px,py,1,1);
-});
-ctx.restore();
-requestAnimationFrame(draw);
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,sc.width,sc.height);
+  ctx.save(); ctx.translate(sc.width/2,sc.height/2);
+  stars.forEach(s=>{
+    s.z-=1.5; if(s.z<1) s.z=sc.width;
+    const k=140/s.z;
+    ctx.fillRect(s.x*k,s.y*k,1,1);
+  });
+  ctx.restore(); requestAnimationFrame(draw);
 }
 draw();
 
-// CORE
+/* ===== CORE ===== */
 const values=[];
+const cosmosEl=cosmos;
+const planetEl=planet;
+const economyEl=economy;
+const socialEl=social;
+
 function level(v){return v<0.4?"green":v<0.7?"yellow":"red";}
 function add(el,name,val){
-values.push(val);
-const d=document.createElement("div");
-d.className=`indicator ${level(val)}`;
-d.innerHTML=`<span>${name}</span><span>${(val*100).toFixed(1)}</span>`;
-el.appendChild(d);
+  values.push(val);
+  const d=document.createElement("div");
+  d.className=`indicator ${level(val)}`;
+  d.innerHTML=`<span>${name}</span><span>${(val*100).toFixed(1)}</span>`;
+  el.appendChild(d);
 }
 
-// COSMOS
+/* ===== COSMOS ===== */
 async function cosmos(){
-try{
-const plasma=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
-const mag=await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
-const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-const xray=await fetch("https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json").then(r=>r.json());
-const proton=await fetch("https://services.swpc.noaa.gov/json/goes/primary/integral-protons-6-hour.json").then(r=>r.json());
-const aurora=await fetch("https://services.swpc.noaa.gov/json/ovation_aurora_latest.json").then(r=>r.json());
+  const plasma=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
+  const mag=await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
+  const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
+  const xray=await fetch("https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json").then(r=>r.json());
+  const proton=await fetch("https://services.swpc.noaa.gov/json/goes/primary/integral-protons-6-hour.json").then(r=>r.json());
+  const aurora=await fetch("https://services.swpc.noaa.gov/products/aurora-forecast.json").then(r=>r.json());
 
-const pl=plasma.at(-1);
-const mg=mag.at(-1);
-const kpVal=kp.at(-1)[1];
-
-add(cosmosEl,"Solar Wind Speed",Math.min(pl[1]/1000,1));
-add(cosmosEl,"Solar Wind Density",Math.min(pl[2]/20,1));
-add(cosmosEl,"IMF Bz |nT|",Math.min(Math.abs(mg[4])/20,1));
-add(cosmosEl,"Planetary Kp Index",Math.min(kpVal/9,1));
-
-const xrMax=Math.max(...xray.map(a=>parseFloat(a.flux)));
-add(cosmosEl,"Solar X-ray Flux",Math.min(xrMax/1e-4,1));
-
-const prMax=Math.max(...proton.map(a=>parseFloat(a.flux)));
-add(cosmosEl,"Proton Flux",Math.min(prMax/100,1));
-
-add(cosmosEl,"Aurora Probability",Math.min(aurora.Global?.mean/100,1));
-}catch(e){console.error("COSMOS error",e);}
+  add(cosmosEl,"Solar Wind Speed",Math.min(plasma.at(-1)[1]/1000,1));
+  add(cosmosEl,"IMF Bz",Math.min(Math.abs(mag.at(-1)[4])/20,1));
+  add(cosmosEl,"Kp Index",Math.min(kp.at(-1)[1]/9,1));
+  add(cosmosEl,"Solar X-ray",Math.min(xray.at(-1).flux,1e-3)*1000);
+  add(cosmosEl,"Proton Flux",Math.min(proton.at(-1)["10MeV"]/100,1));
+  add(cosmosEl,"Aurora Prob.",Math.min(aurora.coordinates[0].probability/100,1));
 }
 
-// PLANET
+/* ===== PLANET ===== */
 async function planet(){
-try{
-const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-add(planetEl,"EQ Count (hour)",Math.min(eq.features.length/20,1));
+  const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
+  const volcano=await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml").then(r=>r.text());
 
-const volcano=await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml").then(r=>r.text());
-const vCount=(volcano.match(/<item>/g)||[]).length;
-add(planetEl,"Volcanic Activity",Math.min(vCount/10,1));
-
-const alerts=await fetch("https://alerts.weather.gov/cap/us.php?x=0").then(r=>r.text());
-const aCount=(alerts.match(/<entry>/g)||[]).length;
-add(planetEl,"Climate Alerts",Math.min(aCount/50,1));
-
-const sea=await fetch("https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=water_level&station=8518750&datum=MSL&units=metric&time_zone=gmt&format=json").then(r=>r.json());
-const levelVal=Math.abs(sea.data.at(-1).v);
-add(planetEl,"Sea Level Anomaly",Math.min(levelVal/2,1));
-}catch(e){console.error("PLANET error",e);}
+  add(planetEl,"Earthquakes (1h)",Math.min(eq.features.length/20,1));
+  add(planetEl,"Volcanic Alerts",Math.min((volcano.match(/<item>/g)||[]).length/10,1));
 }
 
-// ECONOMY
+/* ===== ECONOMY ===== */
 async function economy(){
-try{
-const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
-const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+  const price=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
+  const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
 
-add(economyEl,"Bitcoin",Math.min(p.bitcoin.usd/100000,1));
-add(economyEl,"Ethereum",Math.min(p.ethereum.usd/10000,1));
-add(economyEl,"Fear & Greed",Math.min(parseFloat(fg.data[0].value)/100,1));
-}catch(e){console.error("ECONOMY error",e);}
+  add(economyEl,"Bitcoin",Math.min(price.bitcoin.usd/100000,1));
+  add(economyEl,"Ethereum",Math.min(price.ethereum.usd/10000,1));
+  add(economyEl,"Fear & Greed",fg.data[0].value/100);
 }
 
-// SOCIAL
+/* ===== SOCIAL ===== */
 async function social(){
-try{
-const urls=[
-"https://www.reddit.com/r/worldnews/.json?limit=100",
-"https://www.reddit.com/r/news/.json?limit=100"
-];
-let text="";
-for(const u of urls){
-const d=await fetch(u).then(r=>r.json());
-text+=d.data.children.map(a=>a.data.title).join(" ");
-}
-const words=text.split(/\s+/).length;
-const conflict=(text.match(/war|conflict|attack|crisis|earthquake|flood/gi)||[]).length;
-
-add(socialEl,"News Intensity",Math.min(words/1000,1));
-add(socialEl,"Conflict Tone",Math.min(conflict/50,1));
-}catch(e){console.error("SOCIAL error",e);}
+  const wiki=await fetch("https://en.wikipedia.org/wiki/Special:RecentChanges?feed=atom").then(r=>r.text());
+  const count=(wiki.match(/<entry>/g)||[]).length;
+  add(socialEl,"Wiki Activity",Math.min(count/50,1));
 }
 
-// SYSTEM
+/* ===== SYSTEM ===== */
 function systemState(){
-const avg=values.reduce((a,b)=>a+b,0)/values.length;
-const s=document.getElementById("system");
-s.className=level(avg);
-s.textContent="SYSTEM STATE: "+(avg<0.4?"STABLE":avg<0.7?"TRANSITION":"CRITICAL");
+  const avg=values.reduce((a,b)=>a+b,0)/values.length;
+  system.className=level(avg);
+  system.textContent="SYSTEM STATE: "+(avg<0.4?"STABLE":avg<0.7?"TRANSITION":"CRITICAL");
 }
 
-// LOOP
 async function tick(){
-values.length=0;
-cosmosEl.innerHTML=planetEl.innerHTML=economyEl.innerHTML=socialEl.innerHTML="";
-await cosmos();await planet();await economy();await social();
-systemState();
+  values.length=0;
+  cosmosEl.innerHTML=planetEl.innerHTML=economyEl.innerHTML=socialEl.innerHTML="";
+  await cosmos(); await planet(); await economy(); await social();
+  systemState();
 }
-
-const cosmosEl=document.getElementById("cosmos");
-const planetEl=document.getElementById("planet");
-const economyEl=document.getElementById("economy");
-const socialEl=document.getElementById("social");
-
-tick();
-setInterval(tick,60000);
+tick(); setInterval(tick,60000);
 </script>
 </body>
 </html>
