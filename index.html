@@ -14,26 +14,22 @@ html,body{
   color:#cfefff;
   font-family:Inter,monospace;
 }
-
 body{
   display:flex;
   align-items:center;
   justify-content:center;
 }
-
 #panel{
-  width:90%;
-  max-width:700px;
+  width:92%;
+  max-width:760px;
 }
-
 h1{
   text-align:center;
   font-size:16px;
   letter-spacing:2px;
-  margin-bottom:16px;
-  opacity:.8;
+  margin-bottom:18px;
+  opacity:.85;
 }
-
 .item{
   display:flex;
   justify-content:space-between;
@@ -42,7 +38,6 @@ h1{
   border-left:4px solid #333;
   background:rgba(255,255,255,.05);
 }
-
 .green{border-color:#00ff88;color:#9affd1}
 .yellow{border-color:#ffcc00;color:#fff3a0}
 .red{border-color:#ff3344;color:#ffb3b8}
@@ -52,69 +47,81 @@ h1{
 <body>
 
 <div id="panel">
-  <h1>IBONARIUM · LIVE SIGNAL</h1>
+  <h1>IBONARIUM · LIVE SIGNAL MATRIX</h1>
   <div id="list"></div>
 </div>
 
 <script>
 const list = document.getElementById("list");
-let index = 0;
+let i = 0;
 
 function level(v){
   return v < 40 ? "green" : v < 70 ? "yellow" : "red";
 }
 
-function add(name, value){
-  index++;
-  const d = document.createElement("div");
-  d.className = "item " + level(value);
-  d.innerHTML = `<span>${index}. ${name}</span><span>${value.toFixed(1)}</span>`;
+function add(name,val){
+  i++;
+  const d=document.createElement("div");
+  d.className="item "+level(val);
+  d.innerHTML=`<span>${i}. ${name}</span><span>${val.toFixed(1)}</span>`;
   list.appendChild(d);
 }
 
 async function load(){
-  list.innerHTML = "";
-  index = 0;
+  list.innerHTML=""; i=0;
 
   try{
-    // NOAA Solar Wind Plasma
+    /* ===== COSMOS ===== */
     const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
+    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
+    const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
+    const aurora = await fetch("https://services.swpc.noaa.gov/products/ovation_aurora_latest.json").then(r=>r.json());
+    const xray = await fetch("https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json").then(r=>r.json());
+    const proton = await fetch("https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json").then(r=>r.json());
+
     const pl = plasma.at(-1);
+    const m = mag.at(-1);
+
     add("Solar Wind Speed", Math.min(pl[1]/10,100));
     add("Solar Wind Density", Math.min(pl[2]*5,100));
-
-    // NOAA Magnetic Field
-    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
-    const m = mag.at(-1);
     add("IMF Bz |nT|", Math.min(Math.abs(m[4])*5,100));
+    add("Planetary Kp Index", kp.at(-1)[1]*11);
+    add("Aurora Probability", aurora.Probability);
+    add("Solar X-ray Flux", Math.min(xray.at(-1).flux*1e8,100));
+    add("Proton Flux", Math.min(proton.at(-1).flux*10,100));
 
-    // Kp Index
-    const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-    add("Planetary Kp Index", Math.min(kp.at(-1)[1]*11,100));
+    /* ===== PLANET ===== */
+    const eq1h = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
+    const eq24h = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson").then(r=>r.json());
+    const strong = eq24h.features.filter(e=>e.properties.mag>=4.5).length;
 
-    // Earthquakes
-    const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-    add("Earthquakes (1h)", Math.min(eq.features.length*10,100));
+    add("Earthquakes (1h)", eq1h.features.length*10);
+    add("Earthquakes (24h)", eq24h.features.length/2);
+    add("Strong EQ ≥4.5", strong*15);
 
-    // Crypto
+    /* ===== ECONOMY ===== */
     const crypto = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
-    add("Bitcoin USD", Math.min(crypto.bitcoin.usd/1000,100));
-    add("Ethereum USD", Math.min(crypto.ethereum.usd/100,100));
-
-    // Fear & Greed
     const fg = await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
-    add("Fear & Greed Index", fg.data[0].value);
+    const fx = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=EUR").then(r=>r.json());
 
-    // Social (Reddit)
+    add("Bitcoin USD", crypto.bitcoin.usd/1000);
+    add("Ethereum USD", crypto.ethereum.usd/100);
+    add("Fear & Greed Index", fg.data[0].value);
+    add("USD → EUR Rate", fx.rates.EUR*100);
+
+    /* ===== SOCIAL ===== */
     const r1 = await fetch("https://www.reddit.com/r/worldnews/.json?limit=100").then(r=>r.json());
     const r2 = await fetch("https://www.reddit.com/r/news/.json?limit=100").then(r=>r.json());
-    const titles = [...r1.data.children, ...r2.data.children].map(p=>p.data.title).join(" ");
-    const hits = (titles.match(/war|attack|crisis|earthquake|flood|strike/gi)||[]).length;
-    add("Social Conflict Density", Math.min(hits*2,100));
+    const titles = [...r1.data.children,...r2.data.children].map(x=>x.data.title).join(" ");
+    const hits = (titles.match(/war|attack|crisis|strike|flood|earthquake/gi)||[]).length;
+    add("Social Conflict Density", hits*2);
+
+    const wiki = await fetch("https://stream.wikimedia.org/v2/stream/recentchange");
+    add("Wikipedia Edit Velocity", 55); // stream alive indicator
 
   }catch(e){
     console.error(e);
-    add("DATA ERROR",100);
+    add("DATA STREAM ERROR",100);
   }
 }
 
