@@ -2,114 +2,90 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<title>Ibonarium 25 Real Signals</title>
+<title>ibonarium.stability.human.lab.live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-body{
-  margin:0;
-  background:#000;
-  color:#cfefff;
-  font-family:Inter, monospace;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-#wrap{
-  width:80vw;
-  max-height:90vh;
-  overflow-y:auto;
-}
-.item{
-  padding:6px 10px;
-  border-left:4px solid #333;
-  margin-bottom:4px;
-}
-.green{border-color:#00ff88;color:#9affd1}
-.yellow{border-color:#ffcc00;color:#fff3a0}
-.red{border-color:#ff3344;color:#ffb3b8}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden;display:flex;justify-content:center;align-items:center;}
+#list{width:90%;max-width:600px;height:90%;overflow-y:auto;padding:20px;border:1px solid rgba(255,255,255,.2);text-align:center;}
+.indicator{margin:4px 0;font-size:14px;background:rgba(255,255,255,.05);padding:6px 8px;border-left:4px solid #333;}
+.green{border-color:#00ff88;color:#9affd1;}
+.yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite;}
+.red{border-color:#ff3344;color:#ffb3b8;animation:pulse 1s infinite;}
+@keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
 </style>
 </head>
 <body>
-<div id="wrap"></div>
+<div id="list"></div>
+
 <script>
-const el = document.getElementById("wrap");
-let index = 1;
+// CORE
+const listEl = document.getElementById("list");
+const values = [];
 
-function level(v, t1, t2){
-  return v<t1?"green":v<t2?"yellow":"red";
-}
-
-function add(label, value, cls){
+function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
+function add(name,val){
   const d = document.createElement("div");
-  d.className = "item "+cls;
-  d.textContent = `${index}. ${label}: ${value}`;
-  el.appendChild(d);
-  index++;
+  d.className = `indicator ${level(val)}`;
+  d.textContent = `${name}: ${val}`;
+  listEl.appendChild(d);
 }
 
-async function load(){
-  el.innerHTML=""; index=1;
+// FETCH DATA
+async function fetchData(){
+  listEl.innerHTML = "";
+  values.length = 0;
 
-  // ===== COSMOS =====
-  const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
-  const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
-  const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
+  try{
+    // 1-5 COSMOS
+    const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
+    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
+    const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
+    const lastPl = plasma.at(-1);
+    const lastMag = mag.at(-1);
+    const lastKp = kp.at(-1)[1];
+    add("Solar Wind Speed (km/s)", lastPl[1]);
+    add("Solar Wind Density (/cc)", lastPl[2]);
+    add("IMF Bz (nT)", lastMag[4]);
+    add("Kp Index", lastKp);
+    add("Solar Wind Temp (K)", lastPl[3]);
 
-  const pl = plasma.at(-1);
-  const mg = mag.at(-1);
-  const kpVal = kp.at(-1)[1];
+    // 6-10 PLANET
+    const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
+    add("EQ Count (hour)", eq.features.length);
+    add("Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0)));
+    add("Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0)));
+    add("Recent EQ Latitude", eq.features.at(-1)?.geometry.coordinates[1] || "N/A");
+    add("Recent EQ Longitude", eq.features.at(-1)?.geometry.coordinates[0] || "N/A");
 
-  add("Solar Wind Speed (km/s)", pl[1], level(pl[1],400,700));
-  add("Solar Wind Density (p/cm³)", pl[2], level(pl[2],5,15));
-  add("IMF Bz (nT)", mg[4], level(Math.abs(mg[4]),5,10));
-  add("Planetary Kp Index", kpVal, level(kpVal,3,6));
-  add("Plasma Rows Total", plasma.length, level(plasma.length,50,200));
-  add("Magnetometer Rows Total", mag.length, level(mag.length,50,200));
-  add("Kp Index Records Total", kp.length, level(kp.length,20,60));
+    // 11-20 ECONOMY (CoinGecko + Fear&Greed)
+    const crypto = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,cardano,solana,dogecoin&vs_currencies=usd").then(r=>r.json());
+    const fgRaw = await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+    const fgValue = parseFloat(fgRaw.data[0].value);
+    add("Bitcoin USD", crypto.bitcoin.usd);
+    add("Ethereum USD", crypto.ethereum.usd);
+    add("Cardano USD", crypto.cardano.usd);
+    add("Solana USD", crypto.solana.usd);
+    add("Dogecoin USD", crypto.dogecoin.usd);
+    add("Fear & Greed Index", fgValue);
 
-  // ===== PLANET =====
-  const eq1h = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-  const eqDay = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson").then(r=>r.json());
+    // 21-25 SOCIAL
+    const redditNews = await fetch("https://www.reddit.com/r/worldnews/.json?limit=50").then(r=>r.json());
+    const redditPosts = redditNews.data.children.map(a=>a.data.title).join(" ");
+    const totalPosts = redditNews.data.children.length;
+    const conflictCount = (redditPosts.match(/war|conflict|attack|crisis|earthquake|flood/gi) || []).length;
+    add("Reddit WorldNews Posts Count", totalPosts);
+    add("Reddit Conflict Mentions", conflictCount);
+    add("Reddit Average Words/Post", (redditPosts.split(/\s+/).length/totalPosts).toFixed(1));
+    add("Reddit Titles Length", redditPosts.length);
+    add("Reddit Latest Post Title", redditNews.data.children.at(-1)?.data.title || "N/A");
 
-  add("Earthquakes (last hour)", eq1h.features.length, level(eq1h.features.length,5,15));
-  add("Earthquakes (last 24h)", eqDay.features.length, level(eqDay.features.length,50,150));
-  add("Max Magnitude (24h)", Math.max(...eqDay.features.map(f=>f.properties.mag||0)), level(Math.max(...eqDay.features.map(f=>f.properties.mag||0)),4,6));
-  add("Average Magnitude (24h)", (eqDay.features.reduce((a,f)=>a+(f.properties.mag||0),0)/eqDay.features.length).toFixed(2), level(4,6));
-  add("Significant Quakes (>5.0)", eqDay.features.filter(f=>f.properties.mag>=5).length, level(1,3));
-
-  // ===== ECONOMY =====
-  const prices = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,tether&vs_currencies=usd").then(r=>r.json());
-  add("Bitcoin USD", prices.bitcoin.usd, level(prices.bitcoin.usd,30000,60000));
-  add("Ethereum USD", prices.ethereum.usd, level(prices.ethereum.usd,1500,3000));
-  add("Tether USD", prices.tether.usd, level(prices.tether.usd,0.99,1.01));
-
-  const fg = await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
-  add("Fear & Greed Index", fg.data[0].value, level(fg.data[0].value,40,70));
-
-  // ===== WEATHER =====
-  const weather = await fetch("https://api.open-meteo.com/v1/forecast?latitude=50&longitude=30&current_weather=true").then(r=>r.json());
-  add("Air Temp (°C)", weather.current_weather.temperature, level(weather.current_weather.temperature,0,30));
-  add("Wind Speed (m/s)", weather.current_weather.windspeed, level(weather.current_weather.windspeed,5,15));
-  add("Wind Direction (°)", weather.current_weather.winddirection, level(weather.current_weather.winddirection,90,270));
-  add("Weather Code", weather.current_weather.weathercode, level(weather.current_weather.weathercode,1,50));
-
-  // ===== SOCIAL =====
-  const r1 = await fetch("https://www.reddit.com/r/worldnews/.json?limit=100").then(r=>r.json());
-  const r2 = await fetch("https://www.reddit.com/r/news/.json?limit=100").then(r=>r.json());
-  const titles = [...r1.data.children,...r2.data.children].map(x=>x.data.title).join(" ");
-  const conflict = (titles.match(/war|attack|crisis|conflict|strike/gi)||[]).length;
-
-  add("Reddit worldnews posts", r1.data.children.length, level(r1.data.children.length,30,70));
-  add("Reddit news posts", r2.data.children.length, level(r2.data.children.length,30,70));
-  add("Conflict keywords count", conflict, level(conflict,20,60));
-
-  // ===== EXTRA =====
-  add("Reddit total posts", r1.data.children.length+r2.data.children.length, level(100,200));
+  }catch(e){console.error("API Error", e);}
 }
 
-load();
-setInterval(load,60000);
+// INIT
+fetchData();
+setInterval(fetchData,60000);
 </script>
 </body>
 </html>
