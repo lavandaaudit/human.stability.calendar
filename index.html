@@ -8,12 +8,15 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden}
+
 #stars{position:fixed;inset:0;z-index:0}
 #ui{position:relative;z-index:2;display:flex;height:100%}
 #left{padding:18px;width:420px;overflow-y:auto}
+
 h1{font-size:16px;letter-spacing:2px;opacity:.8;margin-bottom:12px}
 .section{margin-bottom:18px}
 .section h2{font-size:12px;opacity:.7;margin-bottom:6px}
+
 .indicator{
 display:flex;justify-content:space-between;
 padding:6px 8px;margin-bottom:4px;
@@ -23,24 +26,28 @@ border-left:4px solid #333
 .green{border-color:#00ff88;color:#9affd1}
 .yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite}
 .red{border-color:#ff3344;color:#ffb3b8;animation:pulse 1s infinite}
+
 @keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
+
 #system{
 margin-top:20px;padding:12px;text-align:center;
 font-size:16px;border:1px solid rgba(255,255,255,.25)
 }
 </style>
 </head>
-
 <body>
+
 <canvas id="stars"></canvas>
 
 <div id="ui">
   <div id="left">
     <h1>IBONARIUM · STABILITY MATRIX</h1>
+
     <div class="section"><h2>COSMOS</h2><div id="cosmos"></div></div>
     <div class="section"><h2>PLANET</h2><div id="planet"></div></div>
     <div class="section"><h2>ECONOMY</h2><div id="economy"></div></div>
     <div class="section"><h2>SOCIAL</h2><div id="social"></div></div>
+
     <div id="system"></div>
   </div>
 </div>
@@ -63,16 +70,17 @@ function draw(){
   ctx.save(); ctx.translate(sc.width/2,sc.height/2);
   stars.forEach(s=>{
     s.z-=1.5; if(s.z<1) s.z=sc.width;
-    const k=140/s.z;
-    ctx.fillRect(s.x*k,s.y*k,1,1);
+    const k=140/s.z, px=s.x*k, py=s.y*k;
+    ctx.fillStyle="#fff"; ctx.fillRect(px,py,1,1);
   });
-  ctx.restore(); requestAnimationFrame(draw);
+  ctx.restore();
+  requestAnimationFrame(draw);
 }
 draw();
 
 // CORE
 const values=[];
-function level(v){return v<0.4?"green":v<0.7?"yellow":"red";}
+function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
 function add(el,name,val){
   values.push(val);
   const d=document.createElement("div");
@@ -81,80 +89,95 @@ function add(el,name,val){
   el.appendChild(d);
 }
 
-// DOM
-const cosmosEl=document.getElementById("cosmos");
-const planetEl=document.getElementById("planet");
-const economyEl=document.getElementById("economy");
-const socialEl=document.getElementById("social");
-const system=document.getElementById("system");
-
 // COSMOS
 async function cosmos(){
-  const plasma=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
-  const mag=await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
-  const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-  const xray=await fetch("https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json").then(r=>r.json());
-  const proton=await fetch("https://services.swpc.noaa.gov/json/goes/primary/integral-protons-6-hour.json").then(r=>r.json());
-  const aurora=await fetch("https://services.swpc.noaa.gov/products/aurora-forecast.json").then(r=>r.json());
+  try{
+    const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
+    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
+    const kpAll = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
 
-  add(cosmosEl,"Solar Wind Speed",Math.min(plasma.at(-1)[1]/1000,1));
-  add(cosmosEl,"Solar Wind Density",Math.min(plasma.at(-1)[2]/20,1));
-  add(cosmosEl,"IMF Bz",Math.min(Math.abs(mag.at(-1)[4])/20,1));
-  add(cosmosEl,"Planetary Kp",Math.min(kp.at(-1)[1]/9,1));
-  add(cosmosEl,"Solar X-ray Flux",Math.min(xray.at(-1).flux/1e-4,1));
-  add(cosmosEl,"Proton Flux",Math.min(proton.at(-1).flux/100,1));
+    const lastPl = plasma.at(-1);
+    const lastMag = mag.at(-1);
+    const lastKp = kpAll.at(-1)[1];
 
-  const aur=aurora.Forecast.flat();
-  const avgAur=aur.reduce((a,b)=>a+b,0)/aur.length;
-  add(cosmosEl,"Aurora Probability",Math.min(avgAur/100,1));
+    add(cosmosEl,"Solar Wind Speed", Math.min(lastPl[1]/1000,1));
+    add(cosmosEl,"Solar Wind Density", Math.min(lastPl[2]/20,1));
+    add(cosmosEl,"IMF Bz (|nT|)", Math.min(Math.abs(lastMag[4])/20,1));
+    add(cosmosEl,"Planetary Kp Index", Math.min(lastKp/9,1));
+  }catch(e){ console.error("COSMOS API error", e); }
 }
 
 // PLANET
 async function planet(){
-  const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-  add(planetEl,"EQ Count (hour)",Math.min(eq.features.length/20,1));
+  try{
+    const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
+    const count = eq.features.length;
+    add(planetEl,"EQ Count (hour)", Math.min(count/20,1));
+  }catch(e){ console.error("PLANET API error", e); }
 }
 
 // ECONOMY
 async function economy(){
-  const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
-  const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
-  add(economyEl,"Bitcoin",Math.min(p.bitcoin.usd/100000,1));
-  add(economyEl,"Ethereum",Math.min(p.ethereum.usd/10000,1));
-  add(economyEl,"Fear & Greed",fg.data[0].value/100);
+  try{
+    const p = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
+    const fgRaw = await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+    const fgValue = parseFloat(fgRaw.data[0].value)/100;
+
+    add(economyEl,"Bitcoin", Math.min(p.bitcoin.usd/100000,1));
+    add(economyEl,"Ethereum", Math.min(p.ethereum.usd/10000,1));
+    add(economyEl,"Fear & Greed", Math.min(fgValue,1));
+  }catch(e){ console.error("ECONOMY API error", e); }
 }
 
 // SOCIAL
 async function social(){
-  const urls=[
-    "https://www.reddit.com/r/worldnews/.json?limit=100",
-    "https://www.reddit.com/r/news/.json?limit=100"
-  ];
-  let titles="";
-  for(const u of urls){
-    const d=await fetch(u).then(r=>r.json());
-    titles+=d.data.children.map(a=>a.data.title).join(" ");
-  }
-  add(socialEl,"News Intensity",Math.min(titles.split(/\s+/).length/1000,1));
-  add(socialEl,"Conflict Tone",Math.min((titles.match(/war|attack|crisis|conflict/gi)||[]).length/50,1));
+  try{
+    const urls = [
+      "https://www.reddit.com/r/worldnews/.json?limit=100",
+      "https://www.reddit.com/r/news/.json?limit=100"
+    ];
+
+    let titles = "";
+    for(const url of urls){
+      const data = await fetch(url).then(r=>r.json());
+      titles += data.data.children.map(a=>a.data.title).join(" ");
+    }
+
+    const totalPosts = titles.split(/\s+/).length;
+    const conflictCount = (titles.match(/war|conflict|attack|crisis|earthquake|flood/gi) || []).length;
+
+    add(socialEl,"News Intensity", Math.min(totalPosts/1000,1));
+    add(socialEl,"Conflict Tone", Math.min(conflictCount/50,1));
+  }catch(e){ console.error("SOCIAL API error", e); }
 }
 
-// SYSTEM
+// SYSTEM STATE
 function systemState(){
-  const avg=values.reduce((a,b)=>a+b,0)/values.length;
-  system.className=level(avg);
-  system.textContent="SYSTEM STATE: "+(avg<0.4?"STABLE":avg<0.7?"TRANSITION":"CRITICAL");
+  const avg = values.reduce((a,b)=>a+b,0)/values.length;
+  const s = document.getElementById("system");
+  s.className = level(avg);
+  s.textContent = "SYSTEM STATE: "+(avg<0.4?"STABLE":avg<0.7?"TRANSITION":"CRITICAL");
 }
 
+// TICK LOOP
 async function tick(){
   values.length=0;
   cosmosEl.innerHTML=planetEl.innerHTML=economyEl.innerHTML=socialEl.innerHTML="";
-  await cosmos(); await planet(); await economy(); await social();
+  await cosmos();
+  await planet();
+  await economy();
+  await social();
   systemState();
 }
+
+const cosmosEl=document.getElementById("cosmos");
+const planetEl=document.getElementById("planet");
+const economyEl=document.getElementById("economy");
+const socialEl=document.getElementById("social");
 
 tick();
 setInterval(tick,60000);
 </script>
+
 </body>
 </html>
