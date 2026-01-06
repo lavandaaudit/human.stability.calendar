@@ -21,10 +21,10 @@ html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter
 <script>
 const listEl = document.getElementById("list");
 
-function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
+function level(){ return "green"; } // колір не важливий тут
 function add(num,name,val){
   const d = document.createElement("div");
-  d.className = `indicator ${level(Math.random())}`;
+  d.className = `indicator ${level()}`;
   d.textContent = `${num}. ${name}: ${val}`;
   listEl.appendChild(d);
 }
@@ -34,14 +34,15 @@ async function fetchData(){
 
   try{
     // ================= COSMOS (25) =================
-    const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
-    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
-    const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-    const solar = await fetch("https://services.swpc.noaa.gov/products/solar-flux/solar-flux.json").then(r=>r.json());
-    const lastPl = plasma.at(-1);
-    const lastMag = mag.at(-1);
-    const lastKp = kp.at(-1)[1];
-    const lastSolar = solar.at(-1);
+    const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json().catch(()=>[]));
+    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json().catch(()=>[]));
+    const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json().catch(()=>[]));
+    const solar = await fetch("https://services.swpc.noaa.gov/products/solar-flux/solar-flux.json").then(r=>r.json().catch(()=>[]));
+
+    const lastPl = plasma.at(-1) || ["N/A",0,0,0];
+    const lastMag = mag.at(-1) || ["N/A",0,0,0,0];
+    const lastKp = kp.at(-1)? kp.at(-1)[1] : "N/A";
+    const lastSolar = solar.at(-1) || ["N/A",0,0,0];
 
     add(1,"Solar Wind Speed (km/s)", lastPl[1]);
     add(2,"Solar Wind Density (/cc)", lastPl[2]);
@@ -49,55 +50,35 @@ async function fetchData(){
     add(4,"IMF Bz (nT)", lastMag[4]);
     add(5,"Kp Index", lastKp);
     add(6,"Solar F10.7 Flux", lastSolar[1]);
-    add(7,"Solar Proton Flux", lastSolar[2] || "N/A");
-    add(8,"Geomagnetic Ap Index", lastSolar[3] || "N/A");
-    add(9,"CME Alerts (SWPC)", "N/A");
-    add(10,"Aurora Oval Latitude", "N/A");
-    add(11,"Solar Wind Speed 1hr ago", plasma.at(-2)[1]);
-    add(12,"Solar Wind Density 1hr ago", plasma.at(-2)[2]);
-    add(13,"Solar Wind Temp 1hr ago", plasma.at(-2)[3]);
-    add(14,"IMF Bz 1hr ago", mag.at(-2)[4]);
-    add(15,"Kp Index 1hr ago", kp.at(-2)[1]);
-    add(16,"Solar F10.7 1hr ago", solar.at(-2)[1]);
-    add(17,"Solar Proton Flux 1hr ago", solar.at(-2)[2] || "N/A");
-    add(18,"Geomagnetic Ap Index 1hr ago", solar.at(-2)[3] || "N/A");
-    add(19,"Solar Wind Speed 2hr ago", plasma.at(-3)[1]);
-    add(20,"Solar Wind Density 2hr ago", plasma.at(-3)[2]);
-    add(21,"Solar Wind Temp 2hr ago", plasma.at(-3)[3]);
-    add(22,"IMF Bz 2hr ago", mag.at(-3)[4]);
-    add(23,"Kp Index 2hr ago", kp.at(-3)[1]);
-    add(24,"Solar F10.7 2hr ago", solar.at(-3)[1]);
-    add(25,"Solar Proton Flux 2hr ago", solar.at(-3)[2] || "N/A");
+    add(7,"Solar Proton Flux", lastSolar[2]);
+    add(8,"Geomagnetic Ap Index", lastSolar[3]);
+    add(9,"Solar Wind Speed 1hr ago", plasma.at(-2)?plasma.at(-2)[1]:"N/A");
+    add(10,"Solar Wind Density 1hr ago", plasma.at(-2)?plasma.at(-2)[2]:"N/A");
+    add(11,"Solar Wind Temp 1hr ago", plasma.at(-2)?plasma.at(-2)[3]:"N/A");
+    add(12,"IMF Bz 1hr ago", mag.at(-2)?mag.at(-2)[4]:"N/A");
+    add(13,"Kp Index 1hr ago", kp.at(-2)?kp.at(-2)[1]:"N/A");
+    add(14,"Solar F10.7 1hr ago", solar.at(-2)?solar.at(-2)[1]:"N/A");
+    add(15,"Solar Proton Flux 1hr ago", solar.at(-2)?solar.at(-2)[2]:"N/A");
+    add(16,"Geomagnetic Ap Index 1hr ago", solar.at(-2)?solar.at(-2)[3]:"N/A");
+    add(17,"Solar Wind Speed 2hr ago", plasma.at(-3)?plasma.at(-3)[1]:"N/A");
+    add(18,"Solar Wind Density 2hr ago", plasma.at(-3)?plasma.at(-3)[2]:"N/A");
+    add(19,"Solar Wind Temp 2hr ago", plasma.at(-3)?plasma.at(-3)[3]:"N/A");
+    add(20,"IMF Bz 2hr ago", mag.at(-3)?mag.at(-3)[4]:"N/A");
+    add(21,"Kp Index 2hr ago", kp.at(-3)?kp.at(-3)[1]:"N/A");
+    add(22,"Solar F10.7 2hr ago", solar.at(-3)?solar.at(-3)[1]:"N/A");
+    add(23,"Solar Proton Flux 2hr ago", solar.at(-3)?solar.at(-3)[2]:"N/A");
+    add(24,"Geomagnetic Ap Index 2hr ago", solar.at(-3)?solar.at(-3)[3]:"N/A");
+    add(25,"Solar Wind Temp 3hr ago", plasma.at(-4)?plasma.at(-4)[3]:"N/A");
 
     // ================= PLANET (25) =================
-    const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-    const temp = await fetch("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=0&lon=0").then(r=>r.json());
-
-    add(26,"EQ Count (hour)", eq.features.length);
-    add(27,"Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0)));
-    add(28,"Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0)));
-    add(29,"Recent EQ Latitude", eq.features.at(-1)?.geometry.coordinates[1] || "N/A");
-    add(30,"Recent EQ Longitude", eq.features.at(-1)?.geometry.coordinates[0] || "N/A");
-    add(31,"Recent EQ Depth (km)", eq.features.at(-1)?.geometry.coordinates[2] || "N/A");
-    add(32,"EQ Count 1hr ago", eq.features.length); // USGS не дає різниці, дубль
-    add(33,"Volcano Count", "N/A");
-    add(34,"Tsunami Alerts", "N/A");
-    add(35,"Global Avg Temp (K)", temp.properties.timeseries[0].data.instant.air_temperature || "N/A");
-    add(36,"Ocean Level Trend", "N/A");
-    add(37,"EQ Count 2hr ago", eq.features.length);
-    add(38,"Max EQ Magnitude 1hr ago", Math.max(...eq.features.map(e=>e.properties.mag||0)));
-    add(39,"Min EQ Magnitude 1hr ago", Math.min(...eq.features.map(e=>e.properties.mag||0)));
-    add(40,"Recent EQ Latitude 1hr ago", eq.features.at(-1)?.geometry.coordinates[1] || "N/A");
-    add(41,"Recent EQ Longitude 1hr ago", eq.features.at(-1)?.geometry.coordinates[0] || "N/A");
-    add(42,"Recent EQ Depth 1hr ago", eq.features.at(-1)?.geometry.coordinates[2] || "N/A");
-    add(43,"EQ Count 2hr ago", eq.features.length);
-    add(44,"Max EQ Magnitude 2hr ago", Math.max(...eq.features.map(e=>e.properties.mag||0)));
-    add(45,"Min EQ Magnitude 2hr ago", Math.min(...eq.features.map(e=>e.properties.mag||0)));
-    add(46,"Recent EQ Latitude 2hr ago", eq.features.at(-1)?.geometry.coordinates[1] || "N/A");
-    add(47,"Recent EQ Longitude 2hr ago", eq.features.at(-1)?.geometry.coordinates[0] || "N/A");
-    add(48,"Recent EQ Depth 2hr ago", eq.features.at(-1)?.geometry.coordinates[2] || "N/A");
-    add(49,"Global Temp 1hr ago (K)", temp.properties.timeseries[0].data.instant.air_temperature || "N/A");
-    add(50,"Global Temp 2hr ago (K)", temp.properties.timeseries[1]?.data.instant.air_temperature || "N/A");
+    const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json().catch(()=>({features:[]})));
+    
+    for(let i=26;i<=50;i++){
+      const e = eq.features[i-26] || {properties:{mag:"N/A"}, geometry:{coordinates:[0,0,0]}};
+      add(i,`EQ ${i-25} Mag`, e.properties.mag);
+      add(++i,`EQ ${i-25} Lat`, e.geometry.coordinates[1]);
+      add(++i,`EQ ${i-25} Lon`, e.geometry.coordinates[0]);
+    }
 
   }catch(e){console.error("API Error", e);}
 }
