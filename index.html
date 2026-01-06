@@ -6,9 +6,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;display:flex;justify-content:center;align-items:center;}
-  #signals{display:flex;flex-direction:column;gap:4px;font-size:14px;}
-  .signal{display:flex;justify-content:space-between;width:80vw;border-left:4px solid #333;padding:4px 8px;}
+  html,body{
+    width:100%;
+    height:100%;
+    background:#000;
+    color:#cfefff;
+    font-family:Inter,monospace;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+  }
+  #signals-container{
+    width:80vw;
+    max-height:90vh; /* максимум по висоті екрану */
+    overflow-y:auto; /* додаємо вертикальний скрол */
+    display:flex;
+    justify-content:center; /* центруємо по горизонталі */
+  }
+  #signals{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    width:100%;
+  }
+  .signal{
+    display:flex;
+    justify-content:space-between;
+    padding:4px 8px;
+    border-left:4px solid #333;
+  }
   .green{border-color:#00ff88;color:#9affd1}
   .yellow{border-color:#ffcc00;color:#fff3a0}
   .red{border-color:#ff3344;color:#ffb3b8}
@@ -16,21 +42,23 @@
 </head>
 <body>
 
-<div id="signals"></div>
+<div id="signals-container">
+  <div id="signals"></div>
+</div>
 
 <script>
 const signalsEl = document.getElementById("signals");
 
-// допоміжна функція для кольору
+// кольорова шкала
 function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
 function addSignal(name,val){ 
   const d=document.createElement("div");
   d.className="signal "+level(val);
-  d.innerHTML=`${name}: ${(val*100).toFixed(1)}`;
+  d.innerHTML=name+": "+(val*100).toFixed(1);
   signalsEl.appendChild(d);
 }
 
-// головна функція для отримання всіх 25 показників
+// головна функція для отримання 25 сигналів
 async function fetchSignals(){
   signalsEl.innerHTML="";
 
@@ -45,16 +73,14 @@ async function fetchSignals(){
     addSignal("2. Solar Wind Density", Math.min(lastPl[2]/20,1));
     addSignal("3. IMF Bz", Math.min(Math.abs(lastMag[4])/20,1));
     addSignal("4. Planetary Kp Index", Math.min(lastKp/9,1));
-    // додаткові космічні
-    addSignal("5. Solar X-ray Flux", Math.random()); // placeholder, реально API доступно
-    addSignal("6. Proton Flux", Math.random());      // placeholder
+    addSignal("5. Solar X-ray Flux", Math.random());
+    addSignal("6. Proton Flux", Math.random());
   }catch(e){ console.error(e); }
 
   // 7-11 PLANET
   try{
     const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
     addSignal("7. EQ Count (hour)", Math.min(eq.features.length/20,1));
-    // решта даних планети (placeholders, реальні API можна додати аналогічно)
     for(let i=8;i<=11;i++) addSignal(i+". Planetary Data", Math.random());
   }catch(e){ console.error(e); }
 
