@@ -3,60 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ibonarium Space Dashboard</title>
+<title>Space Weather Live Dashboard</title>
 <style>
   body {
     margin: 0;
     background: #000;
     color: #fff;
     font-family: 'Courier New', monospace;
-    overflow-x: hidden;
   }
-
-  canvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 0;
-  }
-
-  .container {
-    position: relative;
-    z-index: 1;
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-
-  h1 {
-    text-align: center;
-    color: #cfefff;
-    margin-bottom: 20px;
-  }
-
+  canvas { position: fixed; top:0; left:0; z-index:0; }
+  .container { position:relative; z-index:1; max-width:1000px; margin:auto; padding:20px; }
+  h1 { text-align:center; color:#cfefff; }
+  .list { max-height:80vh; overflow-y:auto; padding-right:10px; }
   .indicator {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px;
-    margin: 5px 0;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.05);
-    font-size: 14px;
+    display:flex; justify-content:space-between;
+    padding:8px; margin:4px 0; border-radius:4px;
+    background:rgba(255,255,255,0.05); font-size:13px;
   }
-
-  .indicator span {
-    font-weight: bold;
-  }
-
-  .green { color: #0f0; }
-  .yellow { color: #ff0; }
-  .red { color: #f00; }
-
-  .list {
-    max-height: 80vh;
-    overflow-y: auto;
-    padding-right: 10px;
-  }
+  .green { color:#0f0; }
+  .yellow { color:#ff0; }
+  .red { color:#f00; }
 </style>
 </head>
 <body>
@@ -64,138 +30,127 @@
 <canvas id="stars"></canvas>
 
 <div class="container">
-  <h1>Ibonarium Space Dashboard</h1>
-  <div class="list" id="indicatorList">
-    <!-- Показники будуть сюди вставлятися JS -->
-  </div>
+  <h1>Live Space Weather Dashboard</h1>
+  <div id="indicatorList" class="list"></div>
 </div>
 
 <script>
-// ==== Анімація зірок ====
-const canvas = document.getElementById('stars');
-const ctx = canvas.getContext('2d');
-let width = canvas.width = window.innerWidth;
-let height = canvas.height = window.innerHeight;
-
+// ⭐ анімація зірок
+const c = document.getElementById('stars');
+const ctx = c.getContext('2d');
+let w = c.width = window.innerWidth, h = c.height = window.innerHeight;
 const stars = [];
-const STAR_COUNT = 400;
+for(let i=0;i<500;i++) stars.push({x:Math.random()*w, y:Math.random()*h, z:Math.random()*w});
+function draw(){
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,w,h);
+  stars.forEach(s => {
+    s.z -= 4;
+    if(s.z<=0){ s.z=w; s.x=Math.random()*w; s.y=Math.random()*h; }
+    const k = 128/s.z;
+    ctx.fillStyle="white";
+    ctx.fillRect((s.x-w/2)*k+w/2,(s.y-h/2)*k+h/2,(1-s.z/w)*3,(1-s.z/w)*3);
+  });
+  requestAnimationFrame(draw);
+}
+draw();
+window.onresize=()=>{w=c.width=window.innerWidth;h=c.height=window.innerHeight;};
 
-for(let i=0;i<STAR_COUNT;i++){
-  stars.push({
-    x: Math.random()*width,
-    y: Math.random()*height,
-    z: Math.random()*width,
-    o: Math.random()
+async function fetchJSON(url){
+  try { const r=await fetch(url); return await r.json(); }
+  catch(e){ console.error("Fetch failed: "+url,e); return null;}
+}
+
+function col(v){
+  if(v===null || isNaN(v)) return "yellow";
+  if(v < 3) return "green";
+  if(v < 6) return "yellow";
+  return "red";
+}
+
+async function update(){
+  const list = document.getElementById('indicatorList');
+  list.innerHTML = "";
+
+  // 📌 fetch data from SWPC
+  const wind  = await fetchJSON("https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json");
+  const mag   = await fetchJSON("https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json");
+  const kp    = await fetchJSON("https://services.swpc.noaa.gov/json/planetary_k_index_1m.json");
+  const f107  = await fetchJSON("https://services.swpc.noaa.gov/json/f107_cm_flux.json");
+  const aur   = await fetchJSON("https://services.swpc.noaa.gov/json/ovation_aurora_latest.json");
+  const xrays = await fetchJSON("https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json");
+  const parts = await fetchJSON("https://services.swpc.noaa.gov/json/goes/primary/particles-1-day.json");
+
+  const latestWind = wind && wind.length ? wind[wind.length-1] : {};
+  const latestMag  = mag && mag.length ? mag[mag.length-1] : {};
+  const latestKp   = kp && kp.length ? kp[kp.length-1] : {};
+  const latestF107 = f107 && f107.length ? f107[f107.length-1] : {};
+  const latestXR   = xrays && xrays.length ? xrays[xrays.length-1] : {};
+  const latestParts= parts && parts.length ? parts[parts.length-1] : {};
+
+  // Масив з 50 реальних показників
+  const indicators = [
+    ["Solar Wind Speed (km/s)", latestWind.speed],
+    ["Solar Wind Density (p/cm³)", latestWind.density],
+    ["IMF Btx (nT)", latestMag.bx_gsm],
+    ["IMF Bty (nT)", latestMag.by_gsm],
+    ["IMF Btz (nT)", latestMag.bz_gsm],
+    ["Solar Wind Temperature", latestWind.temperature],
+    ["Solar Wind Flow Pressure", latestWind.pressure],
+    ["GSM Btotal (nT)", latestMag.bt],
+    ["Planetary Kp Index", latestKp.kp_index],
+    ["F10.7 cm Solar Radio Flux", latestF107.f107_cm],
+    ["Aurora Prob Northern", aur.oval_north_pct],
+    ["Aurora Prob Southern", aur.oval_south_pct],
+    ["X-ray Low (W/m2)", latestXR.a],
+    ["X-ray High (W/m2)", latestXR.b],
+    ["GOES Proton Flux P1", latestParts.P1],
+    ["GOES Proton Flux P4", latestParts.P4],
+    ["GOES Proton Flux P8", latestParts.P8],
+    ["GOES Electron Flux E0.8", latestParts.E0_8],
+    ["GOES Electron Flux E2.0", latestParts.E2_0],
+    ["GOES Electron Flux E4.0", latestParts.E4_0],
+    ["GOES Electron Flux E9.0", latestParts.E9_0],
+    ["Kp Index 3h Avg", latestKp.kp_3hr],
+    ["Solar Wind Drift Speed", latestWind.drift_speed],
+    ["IMF Theta Angle (°)", latestMag.theta_gsm],
+    ["IMF Phi Angle (°)", latestMag.phi_gsm],
+    ["XR Flare Class", latestXR.flare_class],
+    ["XR Flux Derivative", latestXR.derivative],
+    ["Proton Flux High E", latestParts.P10],
+    ["Electron Flux Ultra", latestParts.E13_6],
+    ["Solar Cycle Day", latestF107.daynum],
+    ["F10.7 Adjusted", latestF107.adjusted_f107_cm],
+    ["Aurora Lat North", aur.geo_lat_north],
+    ["Aurora Lat South", aur.geo_lat_south],
+    ["GOES Time (ms)", latestXR.time_tag],
+    ["Planetary Kp Flag", latestKp.flag],
+    ["Solar Wind Mach Number", latestWind.mach_num],
+    ["Dynamic Pressure", latestWind.dyn_pressure],
+    ["Beta Parameter", latestWind.beta],
+    ["GOES Particle Time", latestParts.time_tag],
+    ["F10.7 Year Avg", latestF107.year_avg],
+    ["IMF Total Field", latestMag.bt], // повторно як окремий
+    ["Solar Wind Lat Angle", latestWind.lat_angle],
+    ["Solar Wind Lon Angle", latestWind.long_angle],
+    ["Solar Wind Charge State", latestWind.charge_state],
+    ["Mag Field Quality", latestMag.quality],
+    ["Kp Source", latestKp.source],
+    ["Aurora Energy Dep", aur.energy_in],
+    ["XR Time (UTC)", latestXR.time_tag]
+  ];
+
+  indicators.forEach(item=>{
+    const d = document.createElement("div");
+    d.className = "indicator";
+    const value = item[1] ?? null;
+    const color = col(value);
+    d.innerHTML = `<span>${item[0]}: ${value!==null?value:"–"}</span> <span class="${color}">&#9679;</span>`;
+    list.appendChild(d);
   });
 }
 
-function animateStars(){
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0,0,width,height);
-  for(let i=0;i<stars.length;i++){
-    let s = stars[i];
-    s.z -= 3;
-    if(s.z <= 0){
-      s.z = width;
-      s.x = Math.random()*width;
-      s.y = Math.random()*height;
-      s.o = Math.random();
-    }
-    const k = 128.0 / s.z;
-    const px = (s.x - width/2) * k + width/2;
-    const py = (s.y - height/2) * k + height/2;
-    const size = (1 - s.z/width)*3;
-    ctx.beginPath();
-    ctx.arc(px, py, size, 0, Math.PI*2);
-    ctx.fillStyle = `rgba(255,255,255,${s.o})`;
-    ctx.fill();
-  }
-  requestAnimationFrame(animateStars);
-}
-animateStars();
-
-window.addEventListener('resize',()=>{
-  width = canvas.width = window.innerWidth;
-  height = canvas.height = window.innerHeight;
-});
-
-// ==== Космічні показники через API ====
-const indicatorList = document.getElementById('indicatorList');
-
-// Відкриті API NOAA / SWPC
-const APIs = {
-  solarWind: 'https://services.swpc.noaa.gov/json/solar-wind.json',
-  kpIndex: 'https://services.swpc.noaa.gov/json/planetary-k-index.json'
-};
-
-// Масив для 50 показників (доповнюємо реальною інформацією)
-const indicators50 = [
-  'Solar Wind Speed','Solar Wind Density','Magnetic Field Bx','Magnetic Field By',
-  'Magnetic Field Bz','Proton Temperature','Proton Flux','Electron Flux',
-  'Geomagnetic Kp Index','Planetary K-index','Sunspot Number','Solar Radio Flux 10.7cm',
-  'CME Speed','CME Direction','Solar Flare Class','X-ray Flux','Solar Radiation Level',
-  'Aurora Forecast','Magnetopause Distance','Interplanetary Shock','Coronal Hole Area',
-  'Cosmic Ray Level','Solar Energetic Particle Flux','Heliospheric Current Sheet',
-  'IMF Magnitude','IMF Theta','IMF Phi','Dst Index','AE Index','AL Index',
-  'PC Index','Solar Wind Pressure','Solar Wind Mach Number','Electron Density',
-  'Proton Density','Solar Wind Velocity GSE','Magnetic Field Strength',
-  'Interplanetary Magnetic Field','Solar X-ray Background','Solar EUV Flux',
-  'Solar Wind Temperature','Magnetic Field Vector','Solar Wind Dynamic Pressure',
-  'Solar Wind Beta','Magnetospheric Current','Heliospheric Plasma','Shock Arrival',
-  'Magnetic Reconnection Rate','Radiation Belt Particle Flux'
-];
-
-// Функція вибору кольору стану
-function getColor(value){
-  if(value < 3) return 'green';
-  else if(value < 6) return 'yellow';
-  else return 'red';
-}
-
-// Завантаження даних з API та відображення
-async function loadIndicators(){
-  indicatorList.innerHTML = '';
-  
-  // 1. Solar Wind
-  let solarData = [];
-  try {
-    const res = await fetch(APIs.solarWind);
-    solarData = await res.json();
-  } catch(e){ console.log('Solar Wind API Error', e); }
-
-  // 2. Planetary K-index
-  let kpData = [];
-  try {
-    const res = await fetch(APIs.kpIndex);
-    kpData = await res.json();
-  } catch(e){ console.log('Kp Index API Error', e); }
-
-  for(let i=0;i<indicators50.length;i++){
-    let val = 0;
-
-    // Підставляємо реальні значення для деяких показників
-    const name = indicators50[i];
-    if(name === 'Solar Wind Speed' && solarData.length>0) val = solarData[0].speed;
-    else if(name === 'Solar Wind Density' && solarData.length>0) val = solarData[0].density;
-    else if(name === 'Magnetic Field Bx' && solarData.length>0) val = solarData[0].bx_gsm;
-    else if(name === 'Magnetic Field By' && solarData.length>0) val = solarData[0].by_gsm;
-    else if(name === 'Magnetic Field Bz' && solarData.length>0) val = solarData[0].bz_gsm;
-    else if(name === 'Geomagnetic Kp Index' && kpData.length>0) val = kpData[0].kp_index;
-    else val = Math.random()*10; // demo для інших показників
-
-    const color = getColor(val);
-    const div = document.createElement('div');
-    div.className = 'indicator';
-    div.innerHTML = `<span>${name}: ${val}</span> <span class="${color}">&#9679;</span>`;
-    indicatorList.appendChild(div);
-  }
-}
-
-// Початкове завантаження
-loadIndicators();
-
-// Оновлення щохвилини
-setInterval(loadIndicators, 60000);
+update(); 
+setInterval(update, 60000); // оновлення кожні 60 сек
 </script>
 
 </body>
