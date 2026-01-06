@@ -8,40 +8,41 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{
-width:100%;
-height:100%;
-background:#000;
-color:#cfefff;
-font-family:Inter,monospace
+  width:100%;
+  height:100%;
+  background:#000;
+  color:#cfefff;
+  font-family:Inter,monospace;
+  overflow:hidden;
 }
 
 #stars{position:fixed;inset:0;z-index:0}
 
 #ui{
-position:relative;
-z-index:2;
-display:grid;
-grid-template-columns:420px 1fr;
-height:100vh;
-min-height:0;
+  position:relative;
+  z-index:2;
+  display:grid;
+  grid-template-columns:420px 1fr;
+  height:100vh;
+  min-height:0;
 }
 
 #left{
-padding:18px;
-overflow-y:auto;
-min-height:0;
+  padding:18px;
+  overflow-y:auto;
+  min-height:0;
 }
 
-h1{font-size:14px;letter-spacing:3px;opacity:.7;margin-bottom:12px}
+h1{font-size:16px;letter-spacing:3px;opacity:.8;margin-bottom:12px}
 .section{margin-bottom:18px}
-.section h2{font-size:11px;opacity:.6;margin-bottom:6px}
+.section h2{font-size:12px;opacity:.6;margin-bottom:6px}
 
 .indicator{
-display:flex;justify-content:space-between;
-padding:6px 8px;margin-bottom:4px;
-font-size:12px;
-background:rgba(255,255,255,.04);
-border-left:4px solid #333
+  display:flex;justify-content:space-between;
+  padding:6px 8px;margin-bottom:4px;
+  font-size:12px;
+  background:rgba(255,255,255,.04);
+  border-left:4px solid #333
 }
 .green{border-color:#00ff88;color:#9affd1}
 .yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite}
@@ -50,31 +51,31 @@ border-left:4px solid #333
 @keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
 
 #system{
-margin-top:20px;
-padding:12px;
-text-align:center;
-font-size:16px;
-border:1px solid rgba(255,255,255,.25)
+  margin-top:20px;
+  padding:12px;
+  text-align:center;
+  font-size:16px;
+  border:1px solid rgba(255,255,255,.25)
 }
 
-/* 🔥 КЛЮЧОВЕ ВИПРАВЛЕННЯ ТУТ */
+/* Графіки */
 #charts{
-padding:16px;
-display:grid;
-grid-template-columns:repeat(3,1fr);
-grid-template-rows:repeat(4,1fr);
-grid-auto-rows:minmax(0,1fr);
-gap:10px;
-height:100%;
-min-height:0;
+  padding:16px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(4,1fr);
+  grid-auto-rows:minmax(100px,1fr);
+  gap:10px;
+  height:100%;
+  min-height:0;
 }
 
 canvas.chart{
-width:100%!important;
-height:100%!important;
-min-height:0;
-background:rgba(255,255,255,.03);
-border:1px solid rgba(255,255,255,.08)
+  width:100%!important;
+  height:100%!important;
+  min-height:100px;
+  background:#fff; /* 🔹 тепер видно області */
+  border:1px solid rgba(255,255,255,.08)
 }
 </style>
 </head>
@@ -110,77 +111,102 @@ border:1px solid rgba(255,255,255,.08)
 const sc=document.getElementById("stars"),ctx=sc.getContext("2d");
 let stars=[];
 function resize(){
-sc.width=innerWidth;sc.height=innerHeight;
-stars=Array.from({length:400},()=>({
-x:Math.random()*innerWidth-innerWidth/2,
-y:Math.random()*innerHeight-innerHeight/2,
-z:Math.random()*innerWidth
-}))
+  sc.width=innerWidth; sc.height=innerHeight;
+  stars=Array.from({length:400},()=>({
+    x:Math.random()*innerWidth-innerWidth/2,
+    y:Math.random()*innerHeight-innerHeight/2,
+    z:Math.random()*innerWidth
+  }))
 }
-addEventListener("resize",resize);resize();
+window.addEventListener("resize",resize);
+resize();
+
 function draw(){
-ctx.fillStyle="#000";ctx.fillRect(0,0,sc.width,sc.height);
-ctx.translate(sc.width/2,sc.height/2);
-stars.forEach(s=>{
-s.z-=1.2;if(s.z<1)s.z=sc.width;
-const k=120/s.z;
-ctx.fillStyle="#fff";
-ctx.fillRect(s.x*k,s.y*k,1,1);
-});
-ctx.setTransform(1,0,0,1,0,0);
-requestAnimationFrame(draw)
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,sc.width,sc.height);
+  ctx.translate(sc.width/2,sc.height/2);
+  stars.forEach(s=>{
+    s.z-=1.2;
+    if(s.z<1)s.z=sc.width;
+    const k=120/s.z;
+    ctx.fillStyle="#fff";
+    ctx.fillRect(s.x*k,s.y*k,1,1);
+  });
+  ctx.setTransform(1,0,0,1,0,0);
+  requestAnimationFrame(draw)
 }
 draw();
 
-/* CORE */
+/* CORE CHARTS */
 const charts=[],buffers=Array.from({length:12},()=>[]);
 document.querySelectorAll(".chart").forEach((c,i)=>{
 charts[i]=new Chart(c,{
-type:"line",
-data:{labels:[],datasets:[{
-data:[],
-borderColor:"#00ffff",
-borderWidth:1,
-pointRadius:0
-}]},
-options:{
-responsive:true,
-maintainAspectRatio:false,
-animation:false,
-plugins:{legend:{display:false}},
-scales:{x:{display:false},y:{display:false}}
-}
+  type:"line",
+  data:{labels:[],datasets:[{
+    data:[],
+    borderColor:"#000", // чорні лінії на білому фоні
+    backgroundColor:"rgba(0,0,0,0.1)",
+    borderWidth:2,
+    pointRadius:2
+  }]},
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    animation:false,
+    plugins:{legend:{display:false}},
+    scales:{x:{display:true},y:{display:true}}
+  }
 })
 });
-function push(i,v){
-const b=buffers[i];
-b.push(v);if(b.length>60)b.shift();
-charts[i].data.labels=b.map(()=> "");
-charts[i].data.datasets[0].data=b;
-charts[i].update("none");
+
+function pushChart(i,v){
+  const b=buffers[i];
+  b.push(v); if(b.length>60)b.shift();
+  charts[i].data.labels=b.map(()=> "");
+  charts[i].data.datasets[0].data=b;
+  charts[i].update("none");
 }
 
-/* DATA (коротко, стабільно) */
+/* DATA */
 const values=[];
 const level=v=>v<.4?"green":v<.7?"yellow":"red";
 const add=(el,n,v)=>{
-values.push(v);
-const d=document.createElement("div");
-d.className=`indicator ${level(v)}`;
-d.innerHTML=`<span>${n}</span><span>${v.toFixed(2)}</span>`;
-el.appendChild(d)
+  values.push(v);
+  const d=document.createElement("div");
+  d.className=`indicator ${level(v)}`;
+  d.innerHTML=`<span>${n}</span><span>${v.toFixed(2)}</span>`;
+  el.appendChild(d)
 }
 
+/* SIMULATION */
 async function tick(){
-values.length=0;
-cosmos.innerHTML=planet.innerHTML=economy.innerHTML=social.innerHTML="";
-["Solar Wind","Density","IMF","Kp"].forEach((n,i)=>{add(cosmos,n,Math.random());push(i,Math.random())});
-["Pressure","Wind","EQ","Seismic"].forEach((n,i)=>{add(planet,n,Math.random());push(i+4,Math.random())});
-["BTC","ETH","Fear","Stress"].forEach((n,i)=>{add(economy,n,Math.random());push(i+8,Math.random())});
-["Conflict","Density","Media","Stress","Global"].forEach(n=>add(social,n,Math.random()));
-const avg=values.reduce((a,b)=>a+b,0)/values.length;
-system.textContent="SYSTEM STATE: "+(avg<.4?"STABLE":avg<.7?"TRANSITION":"CRITICAL");
-system.className=level(avg);
+  values.length=0;
+  cosmos.innerHTML=planet.innerHTML=economy.innerHTML=social.innerHTML="";
+  
+  ["Solar Wind","Density","IMF","Kp"].forEach((n,i)=>{
+    const val=Math.random();
+    add(cosmos,n,val);
+    pushChart(i,val);
+  });
+  
+  ["Pressure","Wind","EQ","Seismic"].forEach((n,i)=>{
+    const val=Math.random();
+    add(planet,n,val);
+    pushChart(i+4,val);
+  });
+  
+  ["BTC","ETH","Fear","Stress"].forEach((n,i)=>{
+    const val=Math.random();
+    add(economy,n,val);
+    pushChart(i+8,val);
+  });
+  
+  ["Conflict","Density","Media","Stress","Global"].forEach(n=>{
+    add(social,n,Math.random())
+  });
+  
+  const avg=values.reduce((a,b)=>a+b,0)/values.length;
+  system.textContent="SYSTEM STATE: "+(avg<.4?"STABLE":avg<.7?"TRANSITION":"CRITICAL");
+  system.className=level(avg);
 }
 
 const cosmos=document.getElementById("cosmos");
@@ -195,3 +221,4 @@ setInterval(tick,60000);
 
 </body>
 </html>
+
