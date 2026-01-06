@@ -110,7 +110,6 @@ function level(v){
 }
 
 function addOrUpdate(name, val, normVal= Math.random()){
-  // normVal від 0 до 1 для визначення кольору
   if(indicators[name]){
     indicators[name].textContent = `${name}: ${val}`;
     indicators[name].className = `indicator ${level(normVal)}`;
@@ -149,6 +148,17 @@ async function fetchData(){
     const lastEQ = eq.features.at(-1);
     addOrUpdate("Recent EQ Latitude", lastEQ?.geometry.coordinates[1] || "N/A", 0.5);
     addOrUpdate("Recent EQ Longitude", lastEQ?.geometry.coordinates[0] || "N/A", 0.5);
+
+    // --- SOLAR CYCLE / SUNSPOTS ---
+    const solarCycle = await fetch("https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-index.json").then(r=>r.json());
+    const sunspotNumber = solarCycle.observed_solar_cycle_index?.slice(-1)[0]?.sunspot_number || "N/A";
+    addOrUpdate("Sunspot Number", sunspotNumber, Math.min(1, sunspotNumber/200));
+
+    // --- SOLAR FLARES ---
+    const flares = await fetch("https://services.swpc.noaa.gov/json/goes/primary/xray-flares.json").then(r=>r.json());
+    const lastFlare = flares.slice(-1)[0];
+    const flareClass = lastFlare?.class_type || "N/A";
+    addOrUpdate("Last Solar Flare", flareClass, flareClass==="X"?1:flareClass==="M"?0.7:0.4);
 
   }catch(e){ console.error("API Error", e); }
 }
