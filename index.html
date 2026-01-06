@@ -41,10 +41,13 @@ grid-template-columns:repeat(3,1fr);
 grid-template-rows:repeat(4,1fr);
 gap:10px;
 background:#0b0f14;
+overflow:auto;
 }
 canvas.chart{
 background:rgba(255,255,255,.03);
-border:1px solid rgba(255,255,255,.08)
+border:1px solid rgba(255,255,255,.08);
+width:100% !important;
+height:150px !important;
 }
 </style>
 </head>
@@ -122,7 +125,7 @@ function add(el,name,val){
     el.appendChild(d)
 }
 
-/* CHART ENGINE */
+/* CHARTS SETUP */
 const charts=[];
 const buffers=Array.from({length:12},()=>[]);
 for(let i=0;i<12;i++){
@@ -133,10 +136,9 @@ for(let i=0;i<12;i++){
         options:{
             animation:false,
             plugins:{legend:{display:false}},
-            scales:{
-                x:{display:false},
-                y:{display:true,ticks:{color:"white"}}
-            }
+            responsive:true,
+            maintainAspectRatio:false,
+            scales:{x:{display:false},y:{display:true,ticks:{color:"white"}}}
         }
     });
 }
@@ -151,42 +153,48 @@ function pushChart(i,val){
 
 /* API DATA FETCHING */
 async function cosmos(){
-    const sw=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
-    const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-    const l=sw.at(-1);
-    const v1=l[2]/800; // Speed
-    const v2=l[1]/50;  // Density
-    const v3=Math.abs(l[4])/10; // IMF Bz
-    const v4=kp.at(-1)[1]/9;   // Kp Index
-    add(cosmosEl,"Solar Wind Speed",v1); pushChart(0,v1);
-    add(cosmosEl,"Solar Wind Density",v2); pushChart(1,v2);
-    add(cosmosEl,"IMF Bz",v3); pushChart(2,v3);
-    add(cosmosEl,"Kp Index",v4); pushChart(3,v4);
+    try{
+        const sw=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
+        const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
+        const l=sw.at(-1);
+        const v1=l[2]/800; 
+        const v2=l[1]/50;
+        const v3=Math.abs(l[4])/10;
+        const v4=kp.at(-1)[1]/9;
+        add(cosmosEl,"Solar Wind Speed",v1); pushChart(0,v1);
+        add(cosmosEl,"Solar Wind Density",v2); pushChart(1,v2);
+        add(cosmosEl,"IMF Bz",v3); pushChart(2,v3);
+        add(cosmosEl,"Kp Index",v4); pushChart(3,v4);
+    } catch(e){console.log("COSMOS API error", e);}
 }
 
 async function planet(){
-    const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-    const v5=Math.random(); // Pressure anomaly placeholder
-    const v6=Math.random(); // Wind anomaly placeholder
-    const v7=Math.min(eq.features.length/20,1); // EQ count
-    const v8=Math.random(); // Seismic energy placeholder
-    add(planetEl,"Pressure Anomaly",v5); pushChart(4,v5);
-    add(planetEl,"Wind Anomaly",v6); pushChart(5,v6);
-    add(planetEl,"EQ Count",v7); pushChart(6,v7);
-    add(planetEl,"Seismic Energy",v8); pushChart(7,v8);
+    try{
+        const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
+        const v5=Math.random();
+        const v6=Math.random();
+        const v7=Math.min(eq.features.length/20,1);
+        const v8=Math.random();
+        add(planetEl,"Pressure Anomaly",v5); pushChart(4,v5);
+        add(planetEl,"Wind Anomaly",v6); pushChart(5,v6);
+        add(planetEl,"EQ Count",v7); pushChart(6,v7);
+        add(planetEl,"Seismic Energy",v8); pushChart(7,v8);
+    } catch(e){console.log("PLANET API error", e);}
 }
 
 async function economy(){
-    const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
-    const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
-    const v9=p.bitcoin.usd/100000;
-    const v10=p.ethereum.usd/10000;
-    const v11=fg.data[0].value/100;
-    const v12=(v9+v10+v11)/3;
-    add(economyEl,"Bitcoin",v9); pushChart(8,v9);
-    add(economyEl,"Ethereum",v10); pushChart(9,v10);
-    add(economyEl,"Fear & Greed",v11); pushChart(10,v11);
-    add(economyEl,"Market Stress",v12); pushChart(11,v12);
+    try{
+        const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
+        const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+        const v9=p.bitcoin.usd/100000;
+        const v10=p.ethereum.usd/10000;
+        const v11=fg.data[0].value/100;
+        const v12=(v9+v10+v11)/3;
+        add(economyEl,"Bitcoin",v9); pushChart(8,v9);
+        add(economyEl,"Ethereum",v10); pushChart(9,v10);
+        add(economyEl,"Fear & Greed",v11); pushChart(10,v11);
+        add(economyEl,"Market Stress",v12); pushChart(11,v12);
+    } catch(e){console.log("ECONOMY API error", e);}
 }
 
 function social(){
@@ -226,4 +234,3 @@ setInterval(tick,60000);
 
 </body>
 </html>
-
