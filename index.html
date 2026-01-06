@@ -5,7 +5,6 @@
 <title>ibonarium.stability.human.lab.live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-/* --- Reset та базові стилі --- */
 *{margin:0;padding:0;box-sizing:border-box;}
 html, body {
   width:100%;
@@ -18,29 +17,23 @@ html, body {
   justify-content:center;
   align-items:center;
 }
-
-/* --- Список індикаторів по центру --- */
 #list {
   display:flex;
   flex-direction:column;
   align-items:center;
   gap:10px;
 }
-
 .indicator {
   font-size:16px;
   padding:4px 8px;
-  border-left:0;
   background:none;
   text-align:center;
+  transition: color 0.5s ease;
 }
 .green { color:#00ff88; }
 .yellow { color:#fff3a0; animation:pulse 2s infinite; }
 .red { color:#ffb3b8; animation:pulse 1s infinite; }
-
 @keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
-
-/* --- Поле зірок --- */
 #stars {
   position:fixed;
   top:0;
@@ -108,21 +101,30 @@ drawStars();
 
 // ================== INDICATORS ==================
 const listEl = document.getElementById("list");
+const indicators = {}; // ключ = назва індикатора, значення = div
 
 function level(v){
-  return v<0.4?"green":v<0.7?"yellow":"red";
+  if(v<0.4) return 'green';
+  if(v<0.7) return 'yellow';
+  return 'red';
 }
 
-function add(name,val){
-  const d = document.createElement("div");
-  d.className = `indicator ${level(Math.random())}`; // випадковий колір для демонстрації
-  d.textContent = `${name}: ${val}`;
-  listEl.appendChild(d);
+function addOrUpdate(name, val, normVal= Math.random()){
+  // normVal від 0 до 1 для визначення кольору
+  if(indicators[name]){
+    indicators[name].textContent = `${name}: ${val}`;
+    indicators[name].className = `indicator ${level(normVal)}`;
+  }else{
+    const d = document.createElement("div");
+    d.className = `indicator ${level(normVal)}`;
+    d.textContent = `${name}: ${val}`;
+    listEl.appendChild(d);
+    indicators[name] = d;
+  }
 }
 
 // ================== FETCH DATA ==================
 async function fetchData(){
-  listEl.innerHTML="";
   try{
     // --- COSMOS ---
     const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
@@ -133,26 +135,28 @@ async function fetchData(){
     const lastMag = mag.at(-1);
     const lastKp = kp.at(-1)[1];
 
-    add("Solar Wind Speed (km/s)", lastPl[1]);
-    add("Solar Wind Density (/cc)", lastPl[2]);
-    add("IMF Bz (nT)", lastMag[4]);
-    add("Kp Index", lastKp);
-    add("Solar Wind Temp (K)", lastPl[3]);
+    addOrUpdate("Solar Wind Speed (km/s)", lastPl[1], Math.min(1, lastPl[1]/1000));
+    addOrUpdate("Solar Wind Density (/cc)", lastPl[2], Math.min(1, lastPl[2]/50));
+    addOrUpdate("IMF Bz (nT)", lastMag[4], Math.min(1, Math.abs(lastMag[4])/20));
+    addOrUpdate("Kp Index", lastKp, Math.min(1, lastKp/9));
+    addOrUpdate("Solar Wind Temp (K)", lastPl[3], Math.min(1, lastPl[3]/200000));
 
     // --- PLANET ---
     const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-    add("EQ Count (hour)", eq.features.length);
-    add("Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0)));
-    add("Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0)));
-    add("Recent EQ Latitude", eq.features.at(-1)?.geometry.coordinates[1] || "N/A");
-    add("Recent EQ Longitude", eq.features.at(-1)?.geometry.coordinates[0] || "N/A");
+    addOrUpdate("EQ Count (hour)", eq.features.length, Math.min(1, eq.features.length/10));
+    addOrUpdate("Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0))/10);
+    addOrUpdate("Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0))/10);
+    const lastEQ = eq.features.at(-1);
+    addOrUpdate("Recent EQ Latitude", lastEQ?.geometry.coordinates[1] || "N/A", 0.5);
+    addOrUpdate("Recent EQ Longitude", lastEQ?.geometry.coordinates[0] || "N/A", 0.5);
+
   }catch(e){ console.error("API Error", e); }
 }
 
 // --- INIT ---
 fetchData();
-setInterval(fetchData, 60000);
-
+setInterval(fetchData, 60000); // оновлення щохвилини
 </script>
+
 </body>
 </html>
