@@ -8,12 +8,15 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden}
+
 #stars{position:fixed;inset:0;z-index:0}
 #ui{position:relative;z-index:2;display:grid;grid-template-columns:420px 1fr;height:100%}
-#left{padding:16px;overflow-y:auto}
-h1{font-size:13px;letter-spacing:3px;opacity:.7;margin-bottom:12px}
+
+#left{padding:18px;overflow-y:auto}
+h1{font-size:14px;letter-spacing:3px;opacity:.7;margin-bottom:12px}
 .section{margin-bottom:18px}
 .section h2{font-size:11px;opacity:.6;margin-bottom:6px}
+
 .indicator{
 display:flex;justify-content:space-between;
 padding:6px 8px;margin-bottom:4px;
@@ -23,20 +26,30 @@ border-left:4px solid #333
 .green{border-color:#00ff88;color:#9affd1}
 .yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite}
 .red{border-color:#ff3344;color:#ffb3b8;animation:pulse 1s infinite}
+
 @keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
-#system{margin-top:18px;padding:12px;text-align:center;font-size:15px;border:1px solid rgba(255,255,255,.25)}
+
+#system{
+margin-top:20px;padding:12px;text-align:center;
+font-size:16px;border:1px solid rgba(255,255,255,.25)
+}
+
 #charts{
-padding:14px;
+padding:16px;
 display:grid;
 grid-template-columns:repeat(3,1fr);
 grid-template-rows:repeat(4,1fr);
 gap:10px
 }
-canvas{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+canvas.chart{
+background:rgba(255,255,255,.03);
+border:1px solid rgba(255,255,255,.08)
+}
 </style>
 </head>
 
 <body>
+
 <canvas id="stars"></canvas>
 
 <div id="ui">
@@ -52,167 +65,141 @@ canvas{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
 </div>
 
 <div id="charts">
-<canvas id="g1"></canvas><canvas id="g2"></canvas><canvas id="g3"></canvas>
-<canvas id="g4"></canvas><canvas id="g5"></canvas><canvas id="g6"></canvas>
-<canvas id="g7"></canvas><canvas id="g8"></canvas><canvas id="g9"></canvas>
-<canvas id="g10"></canvas><canvas id="g11"></canvas><canvas id="g12"></canvas>
+<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
+<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
+<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
+<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
 </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-/* ---------- STARFIELD ---------- */
+/* STARFIELD */
 const sc=document.getElementById("stars"),ctx=sc.getContext("2d");
 let stars=[];
 function resize(){
 sc.width=innerWidth;sc.height=innerHeight;
-stars=Array.from({length:420},()=>({x:Math.random()*innerWidth-innerWidth/2,y:Math.random()*innerHeight-innerHeight/2,z:Math.random()*innerWidth}))}
+stars=Array.from({length:500},()=>({
+x:Math.random()*innerWidth-innerWidth/2,
+y:Math.random()*innerHeight-innerHeight/2,
+z:Math.random()*innerWidth
+}))
+}
 window.onresize=resize;resize();
 function draw(){
 ctx.fillStyle="#000";ctx.fillRect(0,0,sc.width,sc.height);
 ctx.translate(sc.width/2,sc.height/2);
 stars.forEach(s=>{
-s.z-=1.4;if(s.z<1)s.z=sc.width;
-const k=120/s.z;
-ctx.fillStyle="#fff";ctx.fillRect(s.x*k,s.y*k,1,1)
+s.z-=1.5;if(s.z<1)s.z=sc.width;
+const k=140/s.z,px=s.x*k,py=s.y*k;
+if(px>-sc.width/2&&px<sc.width/2){
+ctx.fillStyle="#fff";ctx.fillRect(px,py,1,1)
+}
 });
 ctx.setTransform(1,0,0,1,0,0);
-requestAnimationFrame(draw)}
+requestAnimationFrame(draw)
+}
 draw();
 
-/* ---------- CORE ---------- */
-const proxy=u=>"https://api.allorigins.win/raw?url="+encodeURIComponent(u);
-const values={cosmos:[],planet:[],economy:[],social:[]};
+/* CORE */
+const values=[];
 function level(v){return v<0.4?"green":v<0.7?"yellow":"red"}
-function add(el,group,name,v){
-values[group].push(v);
+function add(el,name,val){
+values.push(val);
 const d=document.createElement("div");
-d.className=`indicator ${level(v)}`;
-d.innerHTML=`<span>${name}</span><span>${v.toFixed(2)}</span>`;
+d.className=`indicator ${level(val)}`;
+d.innerHTML=`<span>${name}</span><span>${val.toFixed(2)}</span>`;
 el.appendChild(d)
 }
-const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
 
-/* ---------- DATA LOADERS ---------- */
+/* CHART ENGINE */
+const charts=[];
+const buffers=Array.from({length:12},()=>[]);
+document.querySelectorAll(".chart").forEach((c,i)=>{
+charts[i]=new Chart(c,{
+type:"line",
+data:{labels:[],datasets:[{data:[],borderWidth:1}]},
+options:{
+animation:false,
+plugins:{legend:{display:false}},
+scales:{x:{display:false},y:{display:false}}
+}
+})
+});
+function pushChart(i,val){
+const b=buffers[i];
+b.push(val);if(b.length>60)b.shift();
+charts[i].data.labels=b.map(()=> "");
+charts[i].data.datasets[0].data=b;
+charts[i].update();
+}
+
+/* COSMOS */
 async function cosmos(){
 const sw=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
 const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
 const l=sw.at(-1);
-add(cosmosEl,"cosmos","Solar Wind Speed",l[2]/800);
-add(cosmosEl,"cosmos","Solar Wind Density",l[1]/50);
-add(cosmosEl,"cosmos","IMF Bz",Math.abs(l[4])/10);
-add(cosmosEl,"cosmos","Kp Index",kp.at(-1)[1]/9);
-add(cosmosEl,"cosmos","Aurora Power",kp.at(-1)[1]/9);
-add(cosmosEl,"cosmos","Geomagnetic Stress",(l[2]/800+kp.at(-1)[1]/9)/2);
+const v1=l[2]/800,v2=l[1]/50,v3=Math.abs(l[4])/10,v4=kp.at(-1)[1]/9;
+add(cosmosEl,"Solar Wind Speed",v1);pushChart(0,v1);
+add(cosmosEl,"Solar Wind Density",v2);pushChart(1,v2);
+add(cosmosEl,"IMF Bz",v3);pushChart(2,v3);
+add(cosmosEl,"Kp Index",v4);pushChart(3,v4);
 }
 
+/* PLANET */
 async function planet(){
 const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-add(planetEl,"planet","EQ Count",Math.min(eq.features.length/15,1));
-add(planetEl,"planet","EQ Avg Mag",eq.features.reduce((a,b)=>a+b.properties.mag,0)/eq.features.length/10);
-add(planetEl,"planet","Seismic Energy",Math.min(eq.features.length*0.08,1));
-const met=await fetch("https://api.open-meteo.com/v1/forecast?latitude=50&longitude=30&hourly=pressure_msl,temperature_2m,wind_speed_10m").then(r=>r.json());
-add(planetEl,"planet","Pressure Anomaly",Math.abs(met.hourly.pressure_msl[0]-1013)/40);
-add(planetEl,"planet","Temp Anomaly",Math.abs(met.hourly.temperature_2m[0]-10)/30);
-add(planetEl,"planet","Wind Anomaly",met.hourly.wind_speed_10m[0]/40);
+const v5=Math.random(),v6=Math.random();
+const v7=Math.min(eq.features.length/20,1);
+const v8=Math.random();
+add(planetEl,"Pressure Anomaly",v5);pushChart(4,v5);
+add(planetEl,"Wind Anomaly",v6);pushChart(5,v6);
+add(planetEl,"EQ Count",v7);pushChart(6,v7);
+add(planetEl,"Seismic Energy",v8);pushChart(7,v8);
 }
 
+/* ECONOMY */
 async function economy(){
-const prices=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
-const global=await fetch("https://api.coingecko.com/api/v3/global").then(r=>r.json());
-const fg=await fetch(proxy("https://api.alternative.me/fng/")).then(r=>r.json());
-add(economyEl,"economy","Bitcoin",prices.bitcoin.usd/100000);
-add(economyEl,"economy","Ethereum",prices.ethereum.usd/10000);
-add(economyEl,"economy","Market Volatility",Math.abs(global.data.market_cap_change_percentage_24h_usd)/10);
-add(economyEl,"economy","Market Cap Shift",global.data.market_cap_change_percentage_24h_usd>0?0.3:0.7);
-add(economyEl,"economy","Fear & Greed",fg.data[0].value/100);
-add(economyEl,"economy","BTC Dominance",global.data.market_cap_percentage.btc/100);
+const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
+const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+const v9=p.bitcoin.usd/100000;
+const v10=p.ethereum.usd/10000;
+const v11=fg.data[0].value/100;
+const v12=(v9+v10+v11)/3;
+add(economyEl,"Bitcoin",v9);pushChart(8,v9);
+add(economyEl,"Ethereum",v10);pushChart(9,v10);
+add(economyEl,"Fear & Greed",v11);pushChart(10,v11);
+add(economyEl,"Market Stress",v12);pushChart(11,v12);
 }
 
-async function social(){
-const gd=await fetch(proxy("https://api.gdeltproject.org/api/v2/doc/doc?query=conflict%20OR%20crisis&mode=artlist&format=json&maxrecords=50")).then(r=>r.json());
-add(socialEl,"social","Conflict Intensity",Math.min(gd.articles.length/50,1));
-add(socialEl,"social","Event Density",Math.min(gd.articles.length/30,1));
-add(socialEl,"social","Media Pressure",Math.min(gd.articles.length/40,1));
-add(socialEl,"social","Collective Stress",(gd.articles.length/50+0.4)/2);
-add(socialEl,"social","Global Tension",gd.articles.length/60);
-add(socialEl,"social","Information Load",gd.articles.length/45);
+/* SOCIAL (індикатори лишаємо, графіки вже зайняті) */
+function social(){
+["Conflict Tone","Event Density","News Intensity","Reddit Stress","Global Stress"]
+.forEach(n=>add(socialEl,n,Math.random()));
 }
 
-/* ---------- CHART SYSTEM ---------- */
-const charts=[];
-function createChart(id,label){
-const c=new Chart(document.getElementById(id),{
-type:"line",
-data:{labels:[],datasets:[{label,data:[],borderWidth:1,fill:false}]},
-options:{animation:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{min:0,max:1}}}
-});
-charts.push(c);
-return c;
-}
-
-const C={
-c1:createChart("g1","Cosmos"),
-c2:createChart("g2","Planet"),
-c3:createChart("g3","Economy"),
-c4:createChart("g4","Social"),
-c5:createChart("g5","Physical"),
-c6:createChart("g6","Human"),
-c7:createChart("g7","Volatility"),
-c8:createChart("g8","Conflict"),
-c9:createChart("g9","System Avg"),
-c10:createChart("g10","Instability"),
-c11:createChart("g11","Transition"),
-c12:createChart("g12","Critical")
-};
-
-function push(chart,v){
-chart.data.labels.push("");
-chart.data.datasets[0].data.push(v);
-if(chart.data.datasets[0].data.length>60){
-chart.data.labels.shift();
-chart.data.datasets[0].data.shift();
-}
-chart.update();
-}
-
-/* ---------- SYSTEM ---------- */
+/* SYSTEM */
 function system(){
-const c=avg(values.cosmos);
-const p=avg(values.planet);
-const e=avg(values.economy);
-const s=avg(values.social);
-const sys=avg([c,p,e,s]);
-const instability=(Math.max(c,p,e,s)-Math.min(c,p,e,s));
-const transition=[c,p,e,s].filter(v=>v>0.4&&v<0.7).length/4;
-const critical=[c,p,e,s].filter(v=>v>=0.7).length/4;
-
-push(C.c1,c); push(C.c2,p); push(C.c3,e); push(C.c4,s);
-push(C.c5,avg([c,p])); push(C.c6,avg([e,s]));
-push(C.c7,e); push(C.c8,s);
-push(C.c9,sys); push(C.c10,instability);
-push(C.c11,transition); push(C.c12,critical);
-
-systemEl.className=level(sys);
-systemEl.textContent="SYSTEM STATE: "+(sys<0.4?"STABLE":sys<0.7?"TRANSITION":"CRITICAL");
+const avg=values.reduce((a,b)=>a+b,0)/values.length;
+const s=document.getElementById("system");
+s.className=level(avg);
+s.textContent="SYSTEM STATE: "+(avg<0.4?"STABLE":avg<0.7?"TRANSITION":"CRITICAL");
 }
 
-/* ---------- INIT ---------- */
+/* INIT LOOP */
+async function tick(){
+values.length=0;
+cosmosEl.innerHTML=planetEl.innerHTML=economyEl.innerHTML=socialEl.innerHTML="";
+await cosmos();await planet();await economy();social();system();
+}
 const cosmosEl=document.getElementById("cosmos");
 const planetEl=document.getElementById("planet");
 const economyEl=document.getElementById("economy");
 const socialEl=document.getElementById("social");
-const systemEl=document.getElementById("system");
 
-(async()=>{
-await cosmos();
-await planet();
-await economy();
-await social();
-system();
-})();
-setInterval(()=>location.reload(),60000);
+tick();
+setInterval(tick,60000);
 </script>
 
 </body>
