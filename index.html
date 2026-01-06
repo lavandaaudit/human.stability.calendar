@@ -126,9 +126,9 @@ function addOrUpdate(name, val, normVal=0.5){
 async function fetchData(){
   try{
     // --- COSMOS ---
-    const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
-    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
-    const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
+    const plasma = await fetch("https://api.allorigins.win/raw?url=https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
+    const mag = await fetch("https://api.allorigins.win/raw?url=https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
+    const kp = await fetch("https://api.allorigins.win/raw?url=https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
 
     const lastPl = plasma.at(-1);
     const lastMag = mag.at(-1);
@@ -150,7 +150,7 @@ async function fetchData(){
     addOrUpdate("Recent EQ Longitude", lastEQ?.geometry.coordinates[0] || "N/A", 0.5);
 
     // --- SOLAR CYCLE / SUNSPOTS ---
-    const solarCycle = await fetch("https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-index.json").then(r=>r.json());
+    const solarCycle = await fetch("https://api.allorigins.win/raw?url=https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-index.json").then(r=>r.json());
     const obsIndex = solarCycle.observed_solar_cycle_index;
     if(obsIndex && obsIndex.length>0){
       const sunspotNumber = obsIndex[obsIndex.length-1].sunspot_number || 0;
@@ -160,7 +160,7 @@ async function fetchData(){
     }
 
     // --- SOLAR FLARES ---
-    const flares = await fetch("https://services.swpc.noaa.gov/json/goes/primary/xray-flares.json").then(r=>r.json());
+    const flares = await fetch("https://api.allorigins.win/raw?url=https://services.swpc.noaa.gov/json/goes/primary/xray-flares.json").then(r=>r.json());
     if(flares && flares.length>0){
       const lastFlare = flares[flares.length-1];
       const flareClass = lastFlare?.class_type || "N/A";
