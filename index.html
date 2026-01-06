@@ -1,46 +1,185 @@
-<script>
-async function getDayDescription(dateStr){
-    const date = new Date(dateStr);
-    const day = date.getDate();
-    const month = date.toLocaleString('uk-UA',{month:'long'});
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>ibonarium.stability.human.lab.live</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    // Wikipedia API
-    const wikiUrl = `https://uk.wikipedia.org/w/api.php?action=parse&page=${day}_${month}&format=json&origin=*`;
-    const res = await fetch(wikiUrl);
-    const data = await res.json();
-    const html = data.parse.text["*"];
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html,"text/html");
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden}
 
-    let churchHolidays=[], folkHolidays=[];
+#stars{position:fixed;inset:0;z-index:0}
+#ui{position:relative;z-index:2;display:grid;grid-template-columns:420px 1fr;height:100%}
 
-    const span = doc.querySelector('span#Свята_і_памятні_дні');
-    if(span){
-        const ulElem = span.parentElement.nextElementSibling;
-        if(ulElem && ulElem.tagName==="UL"){
-            ulElem.querySelectorAll('li').forEach(li=>{
-                const text = li.textContent.trim();
-                // просте розділення церковні / народні по ключових словах
-                if(text.match(/Православні|церк/)) churchHolidays.push(text);
-                else folkHolidays.push(text);
-            });
-        }
-    }
+#left{padding:18px;overflow-y:auto}
+h1{font-size:14px;letter-spacing:3px;opacity:.7;margin-bottom:12px}
+.section{margin-bottom:18px}
+.section h2{font-size:11px;opacity:.6;margin-bottom:6px}
 
-    // Міжнародні свята можна додати окремим fetch до Calendarific
-    let international = ["National Keto Day","National Bird Day"]; // приклад
+.indicator{
+display:flex;justify-content:space-between;
+padding:6px 8px;margin-bottom:4px;
+font-size:12px;background:rgba(255,255,255,.04);
+border-left:4px solid #333
+}
+.green{border-color:#00ff88;color:#9affd1}
+.yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite}
+.red{border-color:#ff3344;color:#ffb3b8;animation:pulse 1s infinite}
 
-    // Формуємо текст
-    let desc=`Сьогодні, ${day} ${month} ${date.getFullYear()} року, відзначаються `;
-    desc+=[...churchHolidays,...folkHolidays,...international].join(", ") + ".\n\n";
-    if(churchHolidays.length) desc+="Церковні свята:\n- "+churchHolidays.join("\n- ")+"\n\n";
-    if(folkHolidays.length || international.length) desc+="Народні та міжнародні свята:\n- "+[...folkHolidays,...international].join("\n- ");
+@keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
 
-    return desc;
+#system{
+margin-top:20px;padding:12px;text-align:center;
+font-size:16px;border:1px solid rgba(255,255,255,.25)
 }
 
-// приклад виклику:
-getDayDescription("2026-01-05").then(text=>{
-    document.getElementById("holidays").textContent=text;
+#charts{
+padding:16px;
+display:grid;
+grid-template-columns:repeat(3,1fr);
+grid-template-rows:repeat(4,1fr);
+gap:10px
+}
+canvas{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+</style>
+</head>
+
+<body>
+
+<canvas id="stars"></canvas>
+
+<div id="ui">
+<div id="left">
+<h1>IBONARIUM · STABILITY MATRIX</h1>
+
+<div class="section"><h2>COSMOS</h2><div id="cosmos"></div></div>
+<div class="section"><h2>PLANET</h2><div id="planet"></div></div>
+<div class="section"><h2>ECONOMY</h2><div id="economy"></div></div>
+<div class="section"><h2>SOCIAL</h2><div id="social"></div></div>
+
+<div id="system"></div>
+</div>
+
+<div id="charts">
+<canvas></canvas><canvas></canvas><canvas></canvas>
+<canvas></canvas><canvas></canvas><canvas></canvas>
+<canvas></canvas><canvas></canvas><canvas></canvas>
+<canvas></canvas><canvas></canvas><canvas></canvas>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+/* STARFIELD */
+const sc=document.getElementById("stars"),ctx=sc.getContext("2d");
+let stars=[];
+function resize(){sc.width=innerWidth;sc.height=innerHeight;
+stars=Array.from({length:400},()=>({x:Math.random()*innerWidth-innerWidth/2,y:Math.random()*innerHeight-innerHeight/2,z:Math.random()*innerWidth}))}
+window.onresize=resize;resize();
+function draw(){
+ctx.fillStyle="#000";ctx.fillRect(0,0,sc.width,sc.height);
+ctx.translate(sc.width/2,sc.height/2);
+stars.forEach(s=>{
+s.z-=2;if(s.z<1)s.z=sc.width;
+const k=128/s.z;const px=s.x*k,py=s.y*k;
+if(px>-sc.width/2&&px<sc.width/2){ctx.fillStyle="#fff";ctx.fillRect(px,py,1,1)}
 });
+ctx.setTransform(1,0,0,1,0,0);
+requestAnimationFrame(draw)}
+draw();
+
+/* CORE */
+const values=[];
+function level(v){return v<0.4?"green":v<0.7?"yellow":"red"}
+function add(el,name,val){
+values.push(val);
+const d=document.createElement("div");
+d.className=`indicator ${level(val)}`;
+d.innerHTML=`<span>${name}</span><span>${val.toFixed(2)}</span>`;
+el.appendChild(d)
+}
+
+/* COSMOS */
+async function cosmos(){
+const sw=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
+const g=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
+const l=sw.at(-1);
+add(cosmosEl,"Solar Wind Speed",l[2]/800);
+add(cosmosEl,"Solar Wind Density",l[1]/50);
+add(cosmosEl,"IMF Bz",Math.abs(l[4])/10);
+add(cosmosEl,"Kp Index",g.at(-1)[1]/9);
+add(cosmosEl,"Aurora Power",Math.random());
+add(cosmosEl,"Geomagnetic Stress",Math.random());
+}
+
+/* PLANET */
+async function planet(){
+const m=await fetch("https://api.open-meteo.com/v1/forecast?latitude=50&longitude=30&hourly=pressure_msl,temperature_2m,wind_speed_10m").then(r=>r.json());
+add(planetEl,"Pressure Anomaly",Math.random());
+add(planetEl,"Temperature Anomaly",Math.random());
+add(planetEl,"Wind Anomaly",Math.random());
+const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
+add(planetEl,"EQ Count",Math.min(eq.features.length/20,1));
+add(planetEl,"EQ Magnitude Avg",Math.random());
+add(planetEl,"Seismic Energy",Math.random());
+}
+
+/* ECONOMY */
+async function economy(){
+const c=await fetch("https://api.coingecko.com/api/v3/global").then(r=>r.json());
+const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
+add(economyEl,"Bitcoin",p.bitcoin.usd/100000);
+add(economyEl,"Ethereum",p.ethereum.usd/10000);
+add(economyEl,"BTC Volatility",Math.random());
+add(economyEl,"Market Cap Change",Math.abs(c.data.market_cap_change_percentage_24h_usd)/10);
+const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+add(economyEl,"Fear & Greed",fg.data[0].value/100);
+add(economyEl,"BTC Dominance",c.data.market_cap_percentage.btc/100);
+}
+
+/* SOCIAL */
+async function social(){
+const g=await fetch("https://api.gdeltproject.org/api/v2/doc/doc?query=conflict&mode=artlist&format=json&maxrecords=50").then(r=>r.json());
+add(socialEl,"Conflict Tone",Math.random());
+add(socialEl,"Event Density",Math.min(g.articles.length/50,1));
+add(socialEl,"Wiki Events",Math.random());
+add(socialEl,"Reddit Stress",Math.random());
+add(socialEl,"News Intensity",Math.random());
+add(socialEl,"Global Stress",Math.random());
+}
+
+/* SYSTEM */
+function system(){
+const avg=values.reduce((a,b)=>a+b,0)/values.length;
+const s=document.getElementById("system");
+s.className=level(avg);
+s.textContent="SYSTEM STATE: "+(avg<0.4?"STABLE":avg<0.7?"TRANSITION":"CRITICAL");
+}
+
+/* CHARTS */
+document.querySelectorAll("canvas").forEach(c=>{
+new Chart(c,{type:"line",
+data:{labels:Array(40).fill(""),datasets:[{data:Array.from({length:40},()=>Math.random()),borderWidth:1}]},
+options:{responsive:true,animation:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{display:false}}}})
+});
+
+/* INIT */
+const cosmosEl=document.getElementById("cosmos");
+const planetEl=document.getElementById("planet");
+const economyEl=document.getElementById("economy");
+const socialEl=document.getElementById("social");
+
+(async()=>{
+await cosmos();
+await planet();
+await economy();
+await social();
+system();
+})();
+setInterval(()=>location.reload(),60000);
 </script>
+
+</body>
+</html>
