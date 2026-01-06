@@ -16,35 +16,28 @@ html, body {
   overflow:hidden;
   display:flex;
   justify-content:center;
-  align-items:flex-start;
-  flex-direction:column;
-  padding-top:20px;
+  align-items:center;
 }
 
-/* --- Список індикаторів --- */
+/* --- Список індикаторів по центру --- */
 #list {
-  width:90%;
-  max-width:600px;
-  height:90%;
-  overflow-y:auto;
-  padding:20px;
-  border:1px solid rgba(255,255,255,0.2);
-  text-align:center;
-  background:rgba(0,0,0,0.3);
-  border-radius:8px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
 }
 
 .indicator {
-  margin:4px 0;
-  font-size:14px;
-  background:rgba(255,255,255,0.05);
-  padding:6px 8px;
-  border-left:4px solid #333;
-  border-radius:2px;
+  font-size:16px;
+  padding:4px 8px;
+  border-left:0;
+  background:none;
+  text-align:center;
 }
-.green { border-color:#00ff88; color:#9affd1; }
-.yellow { border-color:#ffcc00; color:#fff3a0; animation:pulse 2s infinite; }
-.red { border-color:#ff3344; color:#ffb3b8; animation:pulse 1s infinite; }
+.green { color:#00ff88; }
+.yellow { color:#fff3a0; animation:pulse 2s infinite; }
+.red { color:#ffb3b8; animation:pulse 1s infinite; }
+
 @keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
 
 /* --- Поле зірок --- */
@@ -72,9 +65,12 @@ const ctx = canvas.getContext('2d');
 let w = canvas.width = window.innerWidth;
 let h = canvas.height = window.innerHeight;
 
-window.addEventListener('resize', ()=>{ w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight; });
+window.addEventListener('resize', ()=>{
+    w=canvas.width=window.innerWidth;
+    h=canvas.height=window.innerHeight;
+});
 
-const numStars = 200;
+const numStars = 300;
 const stars = [];
 
 for(let i=0;i<numStars;i++){
@@ -92,7 +88,12 @@ function drawStars(){
   for(let i=0;i<numStars;i++){
     let s = stars[i];
     s.z -= 2;
-    if(s.z <= 0){ s.z = w; s.x = Math.random()*w - w/2; s.y = Math.random()*h - h/2; s.color = `hsl(${Math.random()*360},80%,80%)`; }
+    if(s.z <= 0){
+      s.z = w;
+      s.x = Math.random()*w - w/2;
+      s.y = Math.random()*h - h/2;
+      s.color = `hsl(${Math.random()*360},80%,80%)`;
+    }
     let sx = (s.x / s.z) * w + w/2;
     let sy = (s.y / s.z) * h + h/2;
     let r = (1 - s.z/w) * 3;
@@ -108,11 +109,13 @@ drawStars();
 // ================== INDICATORS ==================
 const listEl = document.getElementById("list");
 
-function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
+function level(v){
+  return v<0.4?"green":v<0.7?"yellow":"red";
+}
 
 function add(name,val){
   const d = document.createElement("div");
-  d.className = `indicator ${level(Math.random())}`; // для демонстрації кольору
+  d.className = `indicator ${level(Math.random())}`; // випадковий колір для демонстрації
   d.textContent = `${name}: ${val}`;
   listEl.appendChild(d);
 }
