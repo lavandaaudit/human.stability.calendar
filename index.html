@@ -23,7 +23,7 @@
   .container {
     position: relative;
     z-index: 1;
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 20px;
   }
@@ -41,6 +41,7 @@
     margin: 5px 0;
     border-radius: 4px;
     background: rgba(255,255,255,0.05);
+    font-size: 14px;
   }
 
   .indicator span {
@@ -77,7 +78,7 @@ let width = canvas.width = window.innerWidth;
 let height = canvas.height = window.innerHeight;
 
 const stars = [];
-const STAR_COUNT = 300;
+const STAR_COUNT = 400;
 
 for(let i=0;i<STAR_COUNT;i++){
   stars.push({
@@ -93,7 +94,7 @@ function animateStars(){
   ctx.fillRect(0,0,width,height);
   for(let i=0;i<stars.length;i++){
     let s = stars[i];
-    s.z -= 2;
+    s.z -= 3;
     if(s.z <= 0){
       s.z = width;
       s.x = Math.random()*width;
@@ -118,13 +119,30 @@ window.addEventListener('resize',()=>{
   height = canvas.height = window.innerHeight;
 });
 
-// ==== Показники з API ====
+// ==== 50 Космічних індикаторів ====
 const indicatorList = document.getElementById('indicatorList');
 
-// Приклад відкритих космічних API
+// Відкриті API (NOAA / SWPC)
 const apiUrls = [
   'https://services.swpc.noaa.gov/json/solar-wind.json',
   'https://services.swpc.noaa.gov/json/planetary-k-index.json'
+];
+
+// Імена для 50 індикаторів (для демонстрації)
+const indicators50 = [
+  'Solar Wind Speed', 'Solar Wind Density', 'Magnetic Field Bx', 'Magnetic Field By',
+  'Magnetic Field Bz', 'Proton Temperature', 'Proton Flux', 'Electron Flux',
+  'Geomagnetic Kp Index', 'Planetary K-index', 'Sunspot Number', 'Solar Radio Flux 10.7cm',
+  'CME Speed', 'CME Direction', 'Solar Flare Class', 'X-ray Flux', 'Solar Radiation Level',
+  'Aurora Forecast', 'Magnetopause Distance', 'Interplanetary Shock', 'Coronal Hole Area',
+  'Cosmic Ray Level', 'Solar Energetic Particle Flux', 'Heliospheric Current Sheet', 
+  'IMF Magnitude', 'IMF Theta', 'IMF Phi', 'Dst Index', 'AE Index', 'AL Index', 
+  'PC Index', 'Solar Wind Pressure', 'Solar Wind Mach Number', 'Electron Density',
+  'Proton Density', 'Solar Wind Velocity GSE', 'Magnetic Field Strength', 
+  'Interplanetary Magnetic Field', 'Solar X-ray Background', 'Solar EUV Flux', 
+  'Solar Wind Temperature', 'Magnetic Field Vector', 'Solar Wind Dynamic Pressure',
+  'Solar Wind Beta', 'Magnetospheric Current', 'Heliospheric Plasma', 'Shock Arrival',
+  'Magnetic Reconnection Rate', 'Radiation Belt Particle Flux'
 ];
 
 // Функція для вибору кольору стану
@@ -137,28 +155,17 @@ function getColor(value){
 // Функція завантаження і відображення даних
 async function loadIndicators(){
   indicatorList.innerHTML = '';
-  for(const url of apiUrls){
-    try{
-      const res = await fetch(url);
-      const data = await res.json();
-      // Візьмемо перші 25 елементів як приклад
-      for(let i=0; i<Math.min(25, data.length); i++){
-        const d = data[i];
-        // Генеруємо випадковий стан для прикладу (0..1)
-        const state = Math.random();
-        const color = getColor(state);
-        const div = document.createElement('div');
-        div.className = 'indicator';
-        div.innerHTML = `<span>${JSON.stringify(d).slice(0,50)}...</span> <span class="${color}">&#9679;</span>`;
-        indicatorList.appendChild(div);
-      }
-    } catch(err){
-      console.log('Помилка завантаження API', err);
-    }
+  for(let i=0;i<indicators50.length;i++){
+    const value = Math.random(); // Для демонстрації
+    const color = getColor(value);
+    const div = document.createElement('div');
+    div.className = 'indicator';
+    div.innerHTML = `<span>${indicators50[i]}</span> <span class="${color}">&#9679;</span>`;
+    indicatorList.appendChild(div);
   }
 }
 
-// Початкове завантаження і оновлення кожну хвилину
+// Початкове завантаження і оновлення кожні 60 секунд
 loadIndicators();
 setInterval(loadIndicators, 60000);
 </script>
