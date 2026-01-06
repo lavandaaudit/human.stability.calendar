@@ -23,7 +23,7 @@
   .container {
     position: relative;
     z-index: 1;
-    max-width: 900px;
+    max-width: 1000px;
     margin: 0 auto;
     padding: 20px;
   }
@@ -66,7 +66,7 @@
 <div class="container">
   <h1>Ibonarium Space Dashboard</h1>
   <div class="list" id="indicatorList">
-    <!-- Індикатори будуть вставлятися сюди JS -->
+    <!-- Показники будуть сюди вставлятися JS -->
   </div>
 </div>
 
@@ -119,54 +119,82 @@ window.addEventListener('resize',()=>{
   height = canvas.height = window.innerHeight;
 });
 
-// ==== 50 Космічних індикаторів ====
+// ==== Космічні показники через API ====
 const indicatorList = document.getElementById('indicatorList');
 
-// Відкриті API (NOAA / SWPC)
-const apiUrls = [
-  'https://services.swpc.noaa.gov/json/solar-wind.json',
-  'https://services.swpc.noaa.gov/json/planetary-k-index.json'
-];
+// Відкриті API NOAA / SWPC
+const APIs = {
+  solarWind: 'https://services.swpc.noaa.gov/json/solar-wind.json',
+  kpIndex: 'https://services.swpc.noaa.gov/json/planetary-k-index.json'
+};
 
-// Імена для 50 індикаторів (для демонстрації)
+// Масив для 50 показників (доповнюємо реальною інформацією)
 const indicators50 = [
-  'Solar Wind Speed', 'Solar Wind Density', 'Magnetic Field Bx', 'Magnetic Field By',
-  'Magnetic Field Bz', 'Proton Temperature', 'Proton Flux', 'Electron Flux',
-  'Geomagnetic Kp Index', 'Planetary K-index', 'Sunspot Number', 'Solar Radio Flux 10.7cm',
-  'CME Speed', 'CME Direction', 'Solar Flare Class', 'X-ray Flux', 'Solar Radiation Level',
-  'Aurora Forecast', 'Magnetopause Distance', 'Interplanetary Shock', 'Coronal Hole Area',
-  'Cosmic Ray Level', 'Solar Energetic Particle Flux', 'Heliospheric Current Sheet', 
-  'IMF Magnitude', 'IMF Theta', 'IMF Phi', 'Dst Index', 'AE Index', 'AL Index', 
-  'PC Index', 'Solar Wind Pressure', 'Solar Wind Mach Number', 'Electron Density',
-  'Proton Density', 'Solar Wind Velocity GSE', 'Magnetic Field Strength', 
-  'Interplanetary Magnetic Field', 'Solar X-ray Background', 'Solar EUV Flux', 
-  'Solar Wind Temperature', 'Magnetic Field Vector', 'Solar Wind Dynamic Pressure',
-  'Solar Wind Beta', 'Magnetospheric Current', 'Heliospheric Plasma', 'Shock Arrival',
-  'Magnetic Reconnection Rate', 'Radiation Belt Particle Flux'
+  'Solar Wind Speed','Solar Wind Density','Magnetic Field Bx','Magnetic Field By',
+  'Magnetic Field Bz','Proton Temperature','Proton Flux','Electron Flux',
+  'Geomagnetic Kp Index','Planetary K-index','Sunspot Number','Solar Radio Flux 10.7cm',
+  'CME Speed','CME Direction','Solar Flare Class','X-ray Flux','Solar Radiation Level',
+  'Aurora Forecast','Magnetopause Distance','Interplanetary Shock','Coronal Hole Area',
+  'Cosmic Ray Level','Solar Energetic Particle Flux','Heliospheric Current Sheet',
+  'IMF Magnitude','IMF Theta','IMF Phi','Dst Index','AE Index','AL Index',
+  'PC Index','Solar Wind Pressure','Solar Wind Mach Number','Electron Density',
+  'Proton Density','Solar Wind Velocity GSE','Magnetic Field Strength',
+  'Interplanetary Magnetic Field','Solar X-ray Background','Solar EUV Flux',
+  'Solar Wind Temperature','Magnetic Field Vector','Solar Wind Dynamic Pressure',
+  'Solar Wind Beta','Magnetospheric Current','Heliospheric Plasma','Shock Arrival',
+  'Magnetic Reconnection Rate','Radiation Belt Particle Flux'
 ];
 
-// Функція для вибору кольору стану
+// Функція вибору кольору стану
 function getColor(value){
-  if(value < 0.33) return 'green';
-  else if(value < 0.66) return 'yellow';
+  if(value < 3) return 'green';
+  else if(value < 6) return 'yellow';
   else return 'red';
 }
 
-// Функція завантаження і відображення даних
+// Завантаження даних з API та відображення
 async function loadIndicators(){
   indicatorList.innerHTML = '';
+  
+  // 1. Solar Wind
+  let solarData = [];
+  try {
+    const res = await fetch(APIs.solarWind);
+    solarData = await res.json();
+  } catch(e){ console.log('Solar Wind API Error', e); }
+
+  // 2. Planetary K-index
+  let kpData = [];
+  try {
+    const res = await fetch(APIs.kpIndex);
+    kpData = await res.json();
+  } catch(e){ console.log('Kp Index API Error', e); }
+
   for(let i=0;i<indicators50.length;i++){
-    const value = Math.random(); // Для демонстрації
-    const color = getColor(value);
+    let val = 0;
+
+    // Підставляємо реальні значення для деяких показників
+    const name = indicators50[i];
+    if(name === 'Solar Wind Speed' && solarData.length>0) val = solarData[0].speed;
+    else if(name === 'Solar Wind Density' && solarData.length>0) val = solarData[0].density;
+    else if(name === 'Magnetic Field Bx' && solarData.length>0) val = solarData[0].bx_gsm;
+    else if(name === 'Magnetic Field By' && solarData.length>0) val = solarData[0].by_gsm;
+    else if(name === 'Magnetic Field Bz' && solarData.length>0) val = solarData[0].bz_gsm;
+    else if(name === 'Geomagnetic Kp Index' && kpData.length>0) val = kpData[0].kp_index;
+    else val = Math.random()*10; // demo для інших показників
+
+    const color = getColor(val);
     const div = document.createElement('div');
     div.className = 'indicator';
-    div.innerHTML = `<span>${indicators50[i]}</span> <span class="${color}">&#9679;</span>`;
+    div.innerHTML = `<span>${name}: ${val}</span> <span class="${color}">&#9679;</span>`;
     indicatorList.appendChild(div);
   }
 }
 
-// Початкове завантаження і оновлення кожні 60 секунд
+// Початкове завантаження
 loadIndicators();
+
+// Оновлення щохвилини
 setInterval(loadIndicators, 60000);
 </script>
 
