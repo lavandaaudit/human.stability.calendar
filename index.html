@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;display:flex;justify-content:center;align-items:center;overflow:hidden;}
-#list{width:95%;max-width:800px;height:90%;overflow-y:auto;padding:20px;border:1px solid rgba(255,255,255,.2);text-align:center;}
+html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden;display:flex;justify-content:center;align-items:center;}
+#list{width:90%;max-width:700px;height:90%;overflow-y:auto;padding:20px;border:1px solid rgba(255,255,255,.2);text-align:center;}
 .indicator{margin:4px 0;font-size:14px;background:rgba(255,255,255,.05);padding:6px 8px;border-left:4px solid #333;}
 .green{border-color:#00ff88;color:#9affd1;}
 .yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite;}
@@ -23,94 +23,56 @@ const listEl = document.getElementById("list");
 const values = [];
 
 function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
-function add(num,name,val){
+function add(name,val){
   const d = document.createElement("div");
-  d.className = `indicator ${level(Math.random())}`; // колір для наочності
-  d.textContent = `${num}. ${name}: ${val}`;
+  d.className = `indicator ${level(Math.random())}`; // просто для кольору
+  d.textContent = `${name}: ${val}`;
   listEl.appendChild(d);
 }
 
-// Fetch 50 реальних показників
+// FETCH DATA
 async function fetchData(){
   listEl.innerHTML = "";
   values.length = 0;
-  let num = 1;
 
   try{
-    // 1-5 COSMOS (NOAA)
+    // COSMOS
     const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
     const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
     const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
     const lastPl = plasma.at(-1);
     const lastMag = mag.at(-1);
     const lastKp = kp.at(-1)[1];
-    add(num++,"Solar Wind Speed (km/s)", lastPl[1]);
-    add(num++,"Solar Wind Density (/cc)", lastPl[2]);
-    add(num++,"IMF Bz (nT)", lastMag[4]);
-    add(num++,"Kp Index", lastKp);
-    add(num++,"Solar Wind Temp (K)", lastPl[3]);
 
-    // 6-10 PLANET (USGS)
+    add("1. Solar Wind Speed (km/s)", lastPl[1]);
+    add("2. Solar Wind Density (/cc)", lastPl[2]);
+    add("3. Solar Wind Temp (K)", lastPl[3]);
+    add("4. IMF Bz (nT)", lastMag[4]);
+    add("5. Kp Index", lastKp);
+
+    // додатково COSMOS
+    const f107 = await fetch("https://services.swpc.noaa.gov/products/solar-flux/solar-flux.json").then(r=>r.json());
+    add("6. Solar F10.7 Flux", f107.at(-1)[1]);
+    add("7. Solar Proton Flux", f107.at(-1)[2] || "N/A"); // якщо є
+    add("8. Geomagnetic Ap Index", f107.at(-1)[3] || "N/A");
+    add("9. CME Alerts (SWPC)", "N/A");
+    add("10. Aurora Oval Latitude", "N/A");
+
+    // PLANET
     const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-    add(num++,"EQ Count (hour)", eq.features.length);
-    add(num++,"Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0)));
-    add(num++,"Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0)));
-    add(num++,"Recent EQ Latitude", eq.features.at(-1)?.geometry.coordinates[1] || "N/A");
-    add(num++,"Recent EQ Longitude", eq.features.at(-1)?.geometry.coordinates[0] || "N/A");
+    add("11. EQ Count (hour)", eq.features.length);
+    add("12. Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0)));
+    add("13. Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0)));
+    add("14. Recent EQ Latitude", eq.features.at(-1)?.geometry.coordinates[1] || "N/A");
+    add("15. Recent EQ Longitude", eq.features.at(-1)?.geometry.coordinates[0] || "N/A");
+    add("16. Recent EQ Depth (km)", eq.features.at(-1)?.geometry.coordinates[2] || "N/A");
 
-    // 11-20 ECONOMY (CoinGecko + Exchange Rates)
-    const crypto = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,cardano,solana,dogecoin,shiba-inu,ripple,polkadot,tron,binancecoin&vs_currencies=usd").then(r=>r.json());
-    for(const [name,obj] of Object.entries(crypto)){
-      add(num++,`${name} USD`, obj.usd);
-    }
-    const rates = await fetch("https://api.exchangerate.host/latest?base=USD").then(r=>r.json());
-    add(num++,"USD/EUR", rates.rates.EUR.toFixed(3));
-    add(num++,"USD/GBP", rates.rates.GBP.toFixed(3));
-    add(num++,"USD/JPY", rates.rates.JPY.toFixed(1));
-    add(num++,"USD/CAD", rates.rates.CAD.toFixed(3));
-    add(num++,"USD/AUD", rates.rates.AUD.toFixed(3));
-
-    // 21-35 WEATHER (Open-Meteo)
-    const weather = await fetch("https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current_weather=true").then(r=>r.json());
-    const cw = weather.current_weather;
-    add(num++,"Temperature NYC (°C)", cw.temperature);
-    add(num++,"Wind Speed NYC (km/h)", cw.windspeed);
-    add(num++,"Wind Direction NYC (°)", cw.winddirection);
-    add(num++,"Weather Code NYC", cw.weathercode);
-    add(num++,"Time NYC", cw.time);
-    // Додамо ще 10 міст для прикладу
-    const cities = [
-      {lat:51.5074,lon:-0.1278,name:"London"},
-      {lat:35.6895,lon:139.6917,name:"Tokyo"},
-      {lat:48.8566,lon:2.3522,name:"Paris"},
-      {lat:-33.8688,lon:151.2093,name:"Sydney"},
-      {lat:55.7558,lon:37.6173,name:"Moscow"},
-      {lat:52.52,lon:13.4050,name:"Berlin"},
-      {lat:41.9028,lon:12.4964,name:"Rome"},
-      {lat:34.0522,lon:-118.2437,name:"Los Angeles"},
-      {lat:19.4326,lon:-99.1332,name:"Mexico City"},
-      {lat:-23.5505,lon:-46.6333,name:"Sao Paulo"}
-    ];
-    for(const c of cities){
-      const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current_weather=true`).then(r=>r.json());
-      add(num++,`Temp ${c.name} (°C)`, w.current_weather.temperature);
-      add(num++,`Wind ${c.name} (km/h)`, w.current_weather.windspeed);
-    }
-
-    // 36-50 SOCIAL (Reddit)
-    const redditNews = await fetch("https://www.reddit.com/r/worldnews/.json?limit=50").then(r=>r.json());
-    const redditPosts = redditNews.data.children.map(a=>a.data.title).join(" ");
-    add(num++,"Reddit Posts Count", redditNews.data.children.length);
-    add(num++,"Reddit Conflict Mentions", (redditPosts.match(/war|conflict|attack|crisis|earthquake|flood/gi) || []).length);
-    add(num++,"Reddit Average Words/Post", (redditPosts.split(/\s+/).length/redditNews.data.children.length).toFixed(1));
-    add(num++,"Reddit Titles Length", redditPosts.length);
-    add(num++,"Reddit Latest Post Title", redditNews.data.children.at(-1)?.data.title || "N/A");
-    add(num++,"Reddit Top 5 Word Frequency", redditPosts.split(/\s+/).slice(0,5).join(", "));
-    add(num++,"Reddit Post 1 Title", redditNews.data.children.at(0)?.data.title || "N/A");
-    add(num++,"Reddit Post 2 Title", redditNews.data.children.at(1)?.data.title || "N/A");
-    add(num++,"Reddit Post 3 Title", redditNews.data.children.at(2)?.data.title || "N/A");
-    add(num++,"Reddit Post 4 Title", redditNews.data.children.at(3)?.data.title || "N/A");
-    add(num++,"Reddit Post 5 Title", redditNews.data.children.at(4)?.data.title || "N/A");
+    // додатково PLANET
+    add("17. Volcano Count", "N/A");
+    add("18. Tsunami Alerts", "N/A");
+    const temp = await fetch("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=0&lon=0").then(r=>r.json());
+    add("19. Global Avg Temp (K)", temp.properties.timeseries[0].data.instant.air_temperature || "N/A");
+    add("20. Ocean Level Trend", "N/A");
 
   }catch(e){console.error("API Error", e);}
 }
