@@ -2,12 +2,12 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<title>ibonarium.stability.human.lab.live</title>
+<title>IBONARIUM · 50 Real-Time Indicators</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;display:flex;justify-content:center;align-items:center;overflow:hidden;}
-#list{width:95%;max-width:800px;height:90%;overflow-y:auto;padding:20px;border:1px solid rgba(255,255,255,.2);text-align:center;}
+#list{width:90%;max-width:800px;height:90%;overflow-y:auto;padding:20px;border:1px solid rgba(255,255,255,.2);text-align:center;}
 .indicator{margin:4px 0;font-size:14px;background:rgba(255,255,255,.05);padding:6px 8px;border-left:4px solid #333;}
 .green{border-color:#00ff88;color:#9affd1;}
 .yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite;}
@@ -20,105 +20,92 @@ html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter
 
 <script>
 const listEl = document.getElementById("list");
+let counter = 1;
 
-function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
-function add(num,name,val){
+function add(name, val) {
   const d = document.createElement("div");
-  d.className = `indicator ${level(Math.random())}`;
-  d.textContent = `${num}. ${name}: ${val}`;
+  d.className = "indicator";
+  d.textContent = `${counter}. ${name}: ${val}`;
   listEl.appendChild(d);
+  counter++;
 }
 
-async function fetchData(){
+// Оновлення даних
+async function fetchData() {
   listEl.innerHTML = "";
-  let num = 1;
+  counter = 1;
 
-  try{
-    // COSMOS (1-5)
+  try {
+    // ========== COSMOS (5) ==========
     const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
     const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
     const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
     const lastPl = plasma.at(-1);
     const lastMag = mag.at(-1);
     const lastKp = kp.at(-1)[1];
-    add(num++,"Solar Wind Speed (km/s)", lastPl[1]);
-    add(num++,"Solar Wind Density (/cc)", lastPl[2]);
-    add(num++,"IMF Bz (nT)", lastMag[4]);
-    add(num++,"Kp Index", lastKp);
-    add(num++,"Solar Wind Temp (K)", lastPl[3]);
+    add("Solar Wind Speed (km/s)", lastPl[1]);
+    add("Solar Wind Density (/cc)", lastPl[2]);
+    add("Solar Wind Temp (K)", lastPl[3]);
+    add("IMF Bz (nT)", lastMag[4]);
+    add("Kp Index", lastKp);
 
-    // PLANET (6-10)
+    // ========== PLANET (5) ==========
     const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-    add(num++,"EQ Count (hour)", eq.features.length);
-    add(num++,"Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0)));
-    add(num++,"Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0)));
-    add(num++,"Recent EQ Latitude", eq.features.at(-1)?.geometry.coordinates[1] || "N/A");
-    add(num++,"Recent EQ Longitude", eq.features.at(-1)?.geometry.coordinates[0] || "N/A");
+    const mags = eq.features.map(e=>e.properties.mag||0);
+    add("EQ Count (hour)", eq.features.length);
+    add("Max EQ Magnitude", Math.max(...mags));
+    add("Min EQ Magnitude", Math.min(...mags));
+    add("Recent EQ Latitude", eq.features.at(-1)?.geometry.coordinates[1] || "N/A");
+    add("Recent EQ Longitude", eq.features.at(-1)?.geometry.coordinates[0] || "N/A");
 
-    // CRYPTO (11-18)
-    const crypto = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,litecoin&vs_currencies=usd").then(r=>r.json());
-    add(num++,"Bitcoin USD", crypto.bitcoin.usd);
-    add(num++,"Ethereum USD", crypto.ethereum.usd);
-    add(num++,"XRP USD", crypto.ripple.usd);
-    add(num++,"Litecoin USD", crypto.litecoin.usd);
-    add(num++,"Bitcoin EUR", (crypto.bitcoin.usd*0.92).toFixed(2));
-    add(num++,"Ethereum EUR", (crypto.ethereum.usd*0.92).toFixed(2));
-    add(num++,"XRP EUR", (crypto.ripple.usd*0.92).toFixed(2));
-    add(num++,"Litecoin EUR", (crypto.litecoin.usd*0.92).toFixed(2));
-
-    // EXCHANGE RATES (19-23)
-    const rates = await fetch("https://api.exchangerate.host/latest?base=USD").then(r=>r.json());
-    add(num++,"USD/EUR", rates.rates.EUR.toFixed(3));
-    add(num++,"USD/GBP", rates.rates.GBP.toFixed(3));
-    add(num++,"USD/JPY", rates.rates.JPY.toFixed(1));
-    add(num++,"USD/CAD", rates.rates.CAD.toFixed(3));
-    add(num++,"USD/AUD", rates.rates.AUD.toFixed(3));
-
-    // WEATHER (24-33)
-    const cities = [
-      {lat:40.7128,lon:-74.0060,name:"NYC"},
-      {lat:51.5074,lon:-0.1278,name:"London"},
-      {lat:35.6895,lon:139.6917,name:"Tokyo"},
-      {lat:48.8566,lon:2.3522,name:"Paris"},
-      {lat:-33.8688,lon:151.2093,name:"Sydney"}
-    ];
-    for(const c of cities){
-      const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current_weather=true`).then(r=>r.json());
-      add(num++,`Temp ${c.name} (°C)`, w.current_weather.temperature);
-      add(num++,`Wind ${c.name} (km/h)`, w.current_weather.windspeed);
+    // ========== CRYPTO (12) ==========
+    const crypto = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,ripple,litecoin&vs_currencies=usd,eur,gbp").then(r=>r.json());
+    for (const coin of ["bitcoin","ethereum","ripple","litecoin"]) {
+      add(`${coin} USD`, crypto[coin].usd);
+      add(`${coin} EUR`, crypto[coin].eur);
+      add(`${coin} GBP`, crypto[coin].gbp);
     }
 
-    // SOCIAL / REDDIT (34-43)
-    const reddit = await fetch("https://www.reddit.com/r/worldnews/.json?limit=50").then(r=>r.json());
-    const posts = reddit.data.children.map(a=>a.data.title).join(" ");
-    const totalPosts = reddit.data.children.length;
-    const conflictCount = (posts.match(/war|conflict|attack|crisis|earthquake|flood/gi) || []).length;
-    add(num++,"Reddit Posts Count", totalPosts);
-    add(num++,"Reddit Conflict Mentions", conflictCount);
-    add(num++,"Reddit Avg Words/Post", (posts.split(/\s+/).length/totalPosts).toFixed(1));
-    add(num++,"Reddit Titles Length", posts.length);
-    add(num++,"Reddit Latest Post Title", reddit.data.children.at(-1)?.data.title || "N/A");
-    add(num++,"Reddit Top 5 Words", posts.split(/\s+/).slice(0,5).join(", "));
-    add(num++,"Reddit Post 1 Title", reddit.data.children.at(0)?.data.title || "N/A");
-    add(num++,"Reddit Post 2 Title", reddit.data.children.at(1)?.data.title || "N/A");
-    add(num++,"Reddit Post 3 Title", reddit.data.children.at(2)?.data.title || "N/A");
-    add(num++,"Reddit Post 4 Title", reddit.data.children.at(3)?.data.title || "N/A");
-    add(num++,"Reddit Post 5 Title", reddit.data.children.at(4)?.data.title || "N/A");
+    // ========== EXCHANGE RATES (5) ==========
+    const rates = await fetch("https://api.exchangerate.host/latest?base=USD").then(r=>r.json());
+    add("USD->EUR", rates.rates.EUR.toFixed(4));
+    add("USD->GBP", rates.rates.GBP.toFixed(4));
+    add("USD->JPY", rates.rates.JPY.toFixed(2));
+    add("USD->CHF", rates.rates.CHF.toFixed(4));
+    add("USD->AUD", rates.rates.AUD.toFixed(4));
 
-    // ДОПОВНЮВАЛЬНІ фінансові індикатори (44-50)
-    add(num++,"Gold Price USD/Oz", 1985.5); // приклад, реальні дані беруться через інші API
-    add(num++,"Silver Price USD/Oz", 24.8);
-    add(num++,"Brent Oil Price USD/Barrel", 83.2);
-    add(num++,"WTI Oil Price USD/Barrel", 77.5);
-    add(num++,"Copper Price USD/Ton", 8600);
-    add(num++,"Natural Gas Price USD/MMBtu", 4.12);
-    add(num++,"Corn Price USD/Bushel", 6.8);
+    // ========== WEATHER (10) ==========
+    const cities = [
+      {name:"Kyiv", lat:50.45, lon:30.52},
+      {name:"London", lat:51.51, lon:-0.13},
+      {name:"New York", lat:40.71, lon:-74.01},
+      {name:"Tokyo", lat:35.68, lon:139.69},
+      {name:"Sydney", lat:-33.87, lon:151.21},
+    ];
+    for (const city of cities) {
+      const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current_weather=true`).then(r=>r.json());
+      add(`${city.name} Temp (°C)`, w.current_weather.temperature);
+      add(`${city.name} Wind (m/s)`, w.current_weather.windspeed);
+    }
 
-  }catch(e){console.error("API Error", e);}
+    // ========== SOCIAL / REDDIT (8) ==========
+    const redditNews = await fetch("https://www.reddit.com/r/worldnews/.json?limit=25").then(r=>r.json());
+    const redditPosts = redditNews.data.children.map(a=>a.data.title).join(" ");
+    add("Reddit Posts Count", redditNews.data.children.length);
+    add("Reddit Conflict Mentions", (redditPosts.match(/war|conflict|attack|crisis|earthquake|flood/gi)||[]).length);
+    add("Reddit Avg Words/Post", (redditPosts.split(/\s+/).length/redditNews.data.children.length).toFixed(1));
+    add("Reddit Titles Length", redditPosts.length);
+    add("Reddit Latest Post", redditNews.data.children.at(-1)?.data.title || "N/A");
+    add("Reddit First Post", redditNews.data.children.at(0)?.data.title || "N/A");
+    add("Reddit 5th Post", redditNews.data.children.at(4)?.data.title || "N/A");
+    add("Reddit 10th Post", redditNews.data.children.at(9)?.data.title || "N/A");
+
+  } catch(e){console.error("API Error", e);}
 }
 
+// INIT
 fetchData();
-setInterval(fetchData,60000);
+setInterval(fetchData,60000); // оновлення раз на хвилину
 </script>
 </body>
 </html>
