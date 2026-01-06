@@ -34,15 +34,7 @@ html, body {
 .yellow { color:#fff3a0; animation:pulse 2s infinite; }
 .red { color:#ffb3b8; animation:pulse 1s infinite; }
 @keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
-#stars {
-  position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  z-index:-1;
-  background:#000;
-}
+#stars { position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; background:#000; }
 canvas { display:block; }
 </style>
 </head>
@@ -57,146 +49,78 @@ const canvas = document.getElementById('stars');
 const ctx = canvas.getContext('2d');
 let w = canvas.width = window.innerWidth;
 let h = canvas.height = window.innerHeight;
-
-window.addEventListener('resize', ()=>{
-    w=canvas.width=window.innerWidth;
-    h=canvas.height=window.innerHeight;
-});
+window.addEventListener('resize', ()=>{ w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight; });
 
 const numStars = 300;
 const stars = [];
-
 for(let i=0;i<numStars;i++){
-  stars.push({
-    x: Math.random()*w - w/2,
-    y: Math.random()*h - h/2,
-    z: Math.random()*w,
-    color: `hsl(${Math.random()*360},80%,80%)`
-  });
+  stars.push({x:Math.random()*w - w/2, y:Math.random()*h - h/2, z:Math.random()*w, color:`hsl(${Math.random()*360},80%,80%)`});
 }
-
 function drawStars(){
   ctx.fillStyle='black';
   ctx.fillRect(0,0,w,h);
   for(let i=0;i<numStars;i++){
-    let s = stars[i];
-    s.z -= 2;
-    if(s.z <= 0){
-      s.z = w;
-      s.x = Math.random()*w - w/2;
-      s.y = Math.random()*h - h/2;
-      s.color = `hsl(${Math.random()*360},80%,80%)`;
-    }
-    let sx = (s.x / s.z) * w + w/2;
-    let sy = (s.y / s.z) * h + h/2;
-    let r = (1 - s.z/w) * 3;
-    ctx.beginPath();
-    ctx.fillStyle = s.color;
-    ctx.arc(sx, sy, r, 0, Math.PI*2);
-    ctx.fill();
+    let s=stars[i];
+    s.z-=2;
+    if(s.z<=0){s.z=w; s.x=Math.random()*w - w/2; s.y=Math.random()*h - h/2; s.color=`hsl(${Math.random()*360},80%,80%)`;}
+    let sx=(s.x/s.z)*w+w/2, sy=(s.y/s.z)*h+h/2, r=(1-s.z/w)*3;
+    ctx.beginPath(); ctx.fillStyle=s.color; ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
   }
   requestAnimationFrame(drawStars);
 }
 drawStars();
 
 // ================== INDICATORS ==================
-const listEl = document.getElementById("list");
-const indicators = {};
-
-function level(v){
-  if(v<0.4) return 'green';
-  if(v<0.7) return 'yellow';
-  return 'red';
+const listEl=document.getElementById("list");
+const indicators={};
+function level(v){ if(v<0.4) return 'green'; if(v<0.7) return 'yellow'; return 'red'; }
+function addOrUpdate(name,val,normVal=0.5){
+  if(indicators[name]){indicators[name].textContent=`${name}: ${val}`; indicators[name].className=`indicator ${level(normVal)}`;}
+  else{const d=document.createElement("div"); d.className=`indicator ${level(normVal)}`; d.textContent=`${name}: ${val}`; listEl.appendChild(d); indicators[name]=d;}
 }
 
-function addOrUpdate(name, val, normVal=0.5){
-  if(indicators[name]){
-    indicators[name].textContent = `${name}: ${val}`;
-    indicators[name].className = `indicator ${level(normVal)}`;
-  }else{
-    const d = document.createElement("div");
-    d.className = `indicator ${level(normVal)}`;
-    d.textContent = `${name}: ${val}`;
-    listEl.appendChild(d);
-    indicators[name] = d;
-  }
-}
-
-// ================== HELPER FETCH ==================
+// ================== FETCH JSON через CORS-proxy ==================
 async function fetchJSON(url){
   try{
-    const res = await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(url));
-    const text = await res.text();
-    return JSON.parse(text);
-  }catch(e){
-    console.error("Fetch Error:", url, e);
-    return null;
-  }
+    const res=await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(url));
+    const data=await res.json();
+    return JSON.parse(data.contents);
+  }catch(e){console.error("Fetch Error:",url,e); return null;}
 }
 
 // ================== FETCH DATA ==================
 async function fetchData(){
   try{
     // --- COSMOS ---
-    const plasma = await fetchJSON("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json");
-    const mag = await fetchJSON("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json");
-    const kp = await fetchJSON("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json");
+    const plasma=await fetchJSON("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json");
+    const mag=await fetchJSON("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json");
+    const kp=await fetchJSON("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json");
 
-    if(plasma && plasma.length>0){
-      const lastPl = plasma.at(-1);
-      addOrUpdate("Solar Wind Speed (km/s)", lastPl[1], Math.min(1, lastPl[1]/1000));
-      addOrUpdate("Solar Wind Density (/cc)", lastPl[2], Math.min(1, lastPl[2]/50));
-      addOrUpdate("Solar Wind Temp (K)", lastPl[3], Math.min(1, lastPl[3]/200000));
-    }
-
-    if(mag && mag.length>0){
-      const lastMag = mag.at(-1);
-      addOrUpdate("IMF Bz (nT)", lastMag[4], Math.min(1, Math.abs(lastMag[4])/20));
-    }
-
-    if(kp && kp.length>0){
-      const lastKp = kp.at(-1)[1];
-      addOrUpdate("Kp Index", lastKp, Math.min(1, lastKp/9));
-    }
+    if(plasma && plasma.length>0){const last=plasma.at(-1); addOrUpdate("Solar Wind Speed (km/s)", last[1], Math.min(1,last[1]/1000)); addOrUpdate("Solar Wind Density (/cc)", last[2], Math.min(1,last[2]/50)); addOrUpdate("Solar Wind Temp (K)", last[3], Math.min(1,last[3]/200000)); }
+    if(mag && mag.length>0){const last=mag.at(-1); addOrUpdate("IMF Bz (nT)", last[4], Math.min(1,Math.abs(last[4])/20)); }
+    if(kp && kp.length>0){const last=kp.at(-1)[1]; addOrUpdate("Kp Index", last, Math.min(1,last/9)); }
 
     // --- PLANET ---
-    const eq = await fetchJSON("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson");
-    if(eq && eq.features){
-      addOrUpdate("EQ Count (hour)", eq.features.length, Math.min(1, eq.features.length/10));
-      addOrUpdate("Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0))/10);
-      addOrUpdate("Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0))/10);
-      const lastEQ = eq.features.at(-1);
-      addOrUpdate("Recent EQ Latitude", lastEQ?.geometry.coordinates[1] || "N/A", 0.5);
-      addOrUpdate("Recent EQ Longitude", lastEQ?.geometry.coordinates[0] || "N/A", 0.5);
-    }
+    const eq=await fetchJSON("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson");
+    if(eq && eq.features){ addOrUpdate("EQ Count (hour)", eq.features.length, Math.min(1, eq.features.length/10)); addOrUpdate("Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0))/10); addOrUpdate("Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0))/10); const lastEQ=eq.features.at(-1); addOrUpdate("Recent EQ Latitude", lastEQ?.geometry.coordinates[1]||"N/A",0.5); addOrUpdate("Recent EQ Longitude", lastEQ?.geometry.coordinates[0]||"N/A",0.5); }
 
     // --- SOLAR CYCLE / SUNSPOTS ---
-    const solarCycle = await fetchJSON("https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-index.json");
-    const obsIndex = solarCycle?.observed_solar_cycle_index;
-    if(obsIndex && obsIndex.length>0){
-      const sunspotNumber = obsIndex[obsIndex.length-1].sunspot_number || 0;
-      addOrUpdate("Sunspot Number", sunspotNumber, Math.min(1, sunspotNumber/200));
-    }else{
-      addOrUpdate("Sunspot Number", "N/A", 0.5);
-    }
+    const solarCycle=await fetchJSON("https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-index.json");
+    const obsIndex=solarCycle?.observed_solar_cycle_index;
+    if(obsIndex && obsIndex.length>0){ const sn=obsIndex.at(-1).sunspot_number||0; addOrUpdate("Sunspot Number", sn, Math.min(1,sn/200)); }
+    else addOrUpdate("Sunspot Number","N/A",0.5);
 
     // --- SOLAR FLARES ---
-    const flares = await fetchJSON("https://services.swpc.noaa.gov/json/goes/primary/xray-flares.json");
-    if(flares && flares.length>0){
-      const lastFlare = flares[flares.length-1];
-      const flareClass = lastFlare?.class_type || "N/A";
-      const normVal = flareClass==="X"?1:flareClass==="M"?0.7:flareClass==="C"?0.4:0.5;
-      addOrUpdate("Last Solar Flare", flareClass, normVal);
-    }else{
-      addOrUpdate("Last Solar Flare", "N/A", 0.5);
-    }
+    const flares=await fetchJSON("https://services.swpc.noaa.gov/json/goes/primary/xray-flares.json");
+    if(flares && flares.length>0){ const lf=flares.at(-1); const fc=lf?.class_type||"N/A"; const norm=fc==="X"?1:fc==="M"?0.7:fc==="C"?0.4:0.5; addOrUpdate("Last Solar Flare",fc,norm); }
+    else addOrUpdate("Last Solar Flare","N/A",0.5);
 
-  }catch(e){ console.error("Data Error", e); }
+  }catch(e){console.error("Data Error",e);}
 }
 
 // --- INIT ---
 fetchData();
-setInterval(fetchData, 60000);
+setInterval(fetchData,60000);
 </script>
 
 </body>
