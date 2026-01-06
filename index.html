@@ -92,12 +92,16 @@ d.innerHTML=`<span>${name}</span><span>${(val*100).toFixed(1)}</span>`;
 el.appendChild(d)
 }
 
-/* FETCH & DISPLAY DATA */
+/* COSMOS */
 async function cosmos(){
 try{
 const sw=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
 const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-const l=sw.at(-1);const v1=l[2]/800;const v2=l[1]/50;const v3=Math.abs(l[4])/10;const v4=kp.at(-1)[1]/9;
+const l=sw.at(-1);
+const v1=l[2]/800; // Solar Wind Speed
+const v2=l[1]/50;  // Density
+const v3=Math.abs(l[4])/10; // IMF Bz
+const v4=kp.at(-1)[1]/9; // Kp Index
 add(cosmosEl,"Solar Wind Speed",v1);
 add(cosmosEl,"Solar Wind Density",v2);
 add(cosmosEl,"IMF Bz",v3);
@@ -105,11 +109,14 @@ add(cosmosEl,"Kp Index",v4);
 }catch(e){console.error("COSMOS API error", e);}
 }
 
+/* PLANET */
 async function planet(){
 try{
 const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-const v5=Math.random(),v6=Math.random();
-const v7=Math.min(eq.features.length/20,1);const v8=Math.random();
+const v5=Math.random(); // Pressure Anomaly
+const v6=Math.random(); // Wind Anomaly
+const v7=Math.min(eq.features.length/20,1); // EQ Count normalized
+const v8=Math.random(); // Seismic Energy
 add(planetEl,"Pressure Anomaly",v5);
 add(planetEl,"Wind Anomaly",v6);
 add(planetEl,"EQ Count",v7);
@@ -117,12 +124,18 @@ add(planetEl,"Seismic Energy",v8);
 }catch(e){console.error("PLANET API error", e);}
 }
 
+/* ECONOMY */
 async function economy(){
 try{
 const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
-const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
-const v9=p.bitcoin.usd/100000;const v10=p.ethereum.usd/10000;
-const v11=fg.data[0].value/100;const v12=(v9+v10+v11)/3;
+const fgRaw = await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+const fgValue = parseFloat(fgRaw.data[0].value)/100;
+
+const v9=Math.min(p.bitcoin.usd/100000,1);
+const v10=Math.min(p.ethereum.usd/10000,1);
+const v11=Math.min(fgValue,1);
+const v12=(v9+v10+v11)/3;
+
 add(economyEl,"Bitcoin",v9);
 add(economyEl,"Ethereum",v10);
 add(economyEl,"Fear & Greed",v11);
@@ -130,11 +143,13 @@ add(economyEl,"Market Stress",v12);
 }catch(e){console.error("ECONOMY API error", e);}
 }
 
+/* SOCIAL */
 function social(){
 ["Conflict Tone","Event Density","News Intensity","Reddit Stress","Global Stress"]
 .forEach(n=>add(socialEl,n,Math.random()));
 }
 
+/* SYSTEM STATE */
 function system(){
 const avg=values.reduce((a,b)=>a+b,0)/values.length;
 const s=document.getElementById("system");
@@ -148,6 +163,7 @@ values.length=0;
 cosmosEl.innerHTML=planetEl.innerHTML=economyEl.innerHTML=socialEl.innerHTML="";
 await cosmos();await planet();await economy();social();system();
 }
+
 const cosmosEl=document.getElementById("cosmos");
 const planetEl=document.getElementById("planet");
 const economyEl=document.getElementById("economy");
