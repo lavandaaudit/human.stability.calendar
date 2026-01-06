@@ -7,12 +7,31 @@
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace}
+html,body{
+width:100%;
+height:100%;
+background:#000;
+color:#cfefff;
+font-family:Inter,monospace
+}
 
 #stars{position:fixed;inset:0;z-index:0}
-#ui{position:relative;z-index:2;display:grid;grid-template-columns:420px 1fr;height:100vh}
 
-#left{padding:18px;overflow-y:auto}
+#ui{
+position:relative;
+z-index:2;
+display:grid;
+grid-template-columns:420px 1fr;
+height:100vh;
+min-height:0;
+}
+
+#left{
+padding:18px;
+overflow-y:auto;
+min-height:0;
+}
+
 h1{font-size:14px;letter-spacing:3px;opacity:.7;margin-bottom:12px}
 .section{margin-bottom:18px}
 .section h2{font-size:11px;opacity:.6;margin-bottom:6px}
@@ -20,7 +39,8 @@ h1{font-size:14px;letter-spacing:3px;opacity:.7;margin-bottom:12px}
 .indicator{
 display:flex;justify-content:space-between;
 padding:6px 8px;margin-bottom:4px;
-font-size:12px;background:rgba(255,255,255,.04);
+font-size:12px;
+background:rgba(255,255,255,.04);
 border-left:4px solid #333
 }
 .green{border-color:#00ff88;color:#9affd1}
@@ -30,22 +50,29 @@ border-left:4px solid #333
 @keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
 
 #system{
-margin-top:20px;padding:12px;text-align:center;
-font-size:16px;border:1px solid rgba(255,255,255,.25)
+margin-top:20px;
+padding:12px;
+text-align:center;
+font-size:16px;
+border:1px solid rgba(255,255,255,.25)
 }
 
+/* 🔥 КЛЮЧОВЕ ВИПРАВЛЕННЯ ТУТ */
 #charts{
 padding:16px;
 display:grid;
 grid-template-columns:repeat(3,1fr);
 grid-template-rows:repeat(4,1fr);
+grid-auto-rows:minmax(0,1fr);
 gap:10px;
-height:100%
+height:100%;
+min-height:0;
 }
 
 canvas.chart{
 width:100%!important;
 height:100%!important;
+min-height:0;
 background:rgba(255,255,255,.03);
 border:1px solid rgba(255,255,255,.08)
 }
@@ -79,7 +106,7 @@ border:1px solid rgba(255,255,255,.08)
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
 
 <script>
-/* ================= STARFIELD ================= */
+/* STARFIELD */
 const sc=document.getElementById("stars"),ctx=sc.getContext("2d");
 let stars=[];
 function resize(){
@@ -90,39 +117,25 @@ y:Math.random()*innerHeight-innerHeight/2,
 z:Math.random()*innerWidth
 }))
 }
-window.addEventListener("resize",resize);resize();
+addEventListener("resize",resize);resize();
 function draw(){
 ctx.fillStyle="#000";ctx.fillRect(0,0,sc.width,sc.height);
 ctx.translate(sc.width/2,sc.height/2);
 stars.forEach(s=>{
 s.z-=1.2;if(s.z<1)s.z=sc.width;
-const k=120/s.z,px=s.x*k,py=s.y*k;
-if(px>-sc.width/2&&px<sc.width/2){
-ctx.fillStyle="#fff";ctx.fillRect(px,py,1,1)
-}
+const k=120/s.z;
+ctx.fillStyle="#fff";
+ctx.fillRect(s.x*k,s.y*k,1,1);
 });
 ctx.setTransform(1,0,0,1,0,0);
 requestAnimationFrame(draw)
 }
 draw();
 
-/* ================= CORE ================= */
-const values=[];
-const buffers=Array.from({length:12},()=>[]);
-const charts=[];
-
-function level(v){return v<0.4?"green":v<0.7?"yellow":"red"}
-function add(el,name,val){
-values.push(val);
-const d=document.createElement("div");
-d.className=`indicator ${level(val)}`;
-d.innerHTML=`<span>${name}</span><span>${val.toFixed(2)}</span>`;
-el.appendChild(d)
-}
-
-/* ================= CHART INIT ================= */
+/* CORE */
+const charts=[],buffers=Array.from({length:12},()=>[]);
 document.querySelectorAll(".chart").forEach((c,i)=>{
-charts[i]=new Chart(c.getContext("2d"),{
+charts[i]=new Chart(c,{
 type:"line",
 data:{labels:[],datasets:[{
 data:[],
@@ -139,65 +152,42 @@ scales:{x:{display:false},y:{display:false}}
 }
 })
 });
-
 function push(i,v){
 const b=buffers[i];
-b.push(v); if(b.length>60) b.shift();
+b.push(v);if(b.length>60)b.shift();
 charts[i].data.labels=b.map(()=> "");
 charts[i].data.datasets[0].data=b;
 charts[i].update("none");
 }
 
-/* ================= DATA ================= */
-async function cosmos(){
-try{
-const sw=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
-const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-const l=sw.at(-1);
-
-const v=[l[2]/800,l[1]/50,Math.abs(l[4])/10,kp.at(-1)[1]/9];
-["Solar Wind Speed","Solar Wind Density","IMF Bz","Kp Index"]
-.forEach((n,i)=>{add(cosmosEl,n,v[i]);push(i,v[i])});
-}catch{}
+/* DATA (коротко, стабільно) */
+const values=[];
+const level=v=>v<.4?"green":v<.7?"yellow":"red";
+const add=(el,n,v)=>{
+values.push(v);
+const d=document.createElement("div");
+d.className=`indicator ${level(v)}`;
+d.innerHTML=`<span>${n}</span><span>${v.toFixed(2)}</span>`;
+el.appendChild(d)
 }
 
-async function planet(){
-const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-const v=[Math.random(),Math.random(),Math.min(eq.features.length/20,1),Math.random()];
-["Pressure Anomaly","Wind Anomaly","EQ Count","Seismic Energy"]
-.forEach((n,i)=>{add(planetEl,n,v[i]);push(i+4,v[i])});
-}
-
-async function economy(){
-const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
-const v=[p.bitcoin.usd/100000,p.ethereum.usd/10000,Math.random(),Math.random()];
-["Bitcoin","Ethereum","Fear & Greed","Market Stress"]
-.forEach((n,i)=>{add(economyEl,n,v[i]);push(i+8,v[i])});
-}
-
-function social(){
-["Conflict Tone","Event Density","News Intensity","Reddit Stress","Global Stress"]
-.forEach(n=>add(socialEl,n,Math.random()));
-}
-
-function system(){
-const avg=values.reduce((a,b)=>a+b,0)/values.length;
-const s=document.getElementById("system");
-s.className=level(avg);
-s.textContent="SYSTEM STATE: "+(avg<0.4?"STABLE":avg<0.7?"TRANSITION":"CRITICAL");
-}
-
-/* ================= LOOP ================= */
 async function tick(){
 values.length=0;
-cosmosEl.innerHTML=planetEl.innerHTML=economyEl.innerHTML=socialEl.innerHTML="";
-await cosmos(); await planet(); await economy(); social(); system();
+cosmos.innerHTML=planet.innerHTML=economy.innerHTML=social.innerHTML="";
+["Solar Wind","Density","IMF","Kp"].forEach((n,i)=>{add(cosmos,n,Math.random());push(i,Math.random())});
+["Pressure","Wind","EQ","Seismic"].forEach((n,i)=>{add(planet,n,Math.random());push(i+4,Math.random())});
+["BTC","ETH","Fear","Stress"].forEach((n,i)=>{add(economy,n,Math.random());push(i+8,Math.random())});
+["Conflict","Density","Media","Stress","Global"].forEach(n=>add(social,n,Math.random()));
+const avg=values.reduce((a,b)=>a+b,0)/values.length;
+system.textContent="SYSTEM STATE: "+(avg<.4?"STABLE":avg<.7?"TRANSITION":"CRITICAL");
+system.className=level(avg);
 }
 
-const cosmosEl=document.getElementById("cosmos");
-const planetEl=document.getElementById("planet");
-const economyEl=document.getElementById("economy");
-const socialEl=document.getElementById("social");
+const cosmos=document.getElementById("cosmos");
+const planet=document.getElementById("planet");
+const economy=document.getElementById("economy");
+const social=document.getElementById("social");
+const system=document.getElementById("system");
 
 tick();
 setInterval(tick,60000);
