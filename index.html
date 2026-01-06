@@ -2,171 +2,126 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
+<title>ibonarium.stability.human.lab.live — 50 Signals</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Космічний Дашборд — Space Weather Live</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-
-  body {
-    margin: 0;
-    padding: 0;
-    font-family: 'Inter', sans-serif;
-    background-color: #000;
-    color: #fff;
-  }
-  canvas { position: fixed; top:0; left:0; width:100%; height:100%; z-index: 0; }
-  .container { position: relative; z-index: 1; padding: 20px; max-width: 1100px; margin: auto; }
-  h1 { text-align: center; font-size: 2rem; font-weight: 700; margin-bottom: 16px; color: #e0eaff; }
-  .list { max-height: 80vh; overflow-y: scroll; padding-right: 12px; }
-  .indicator {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 12px;
-    margin: 6px 0;
-    font-size: 14px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.06);
-  }
-  .green { color: #0f0; }
-  .yellow { color: #ff0; }
-  .red { color: #f00; }
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden;display:flex;justify-content:center;align-items:center;}
+#list{width:90%;max-width:700px;height:90%;overflow-y:auto;padding:20px;border:1px solid rgba(255,255,255,.2);text-align:left;}
+.item{margin:4px 0;font-size:14px;padding:6px 8px;border-left:4px solid #333;}
 </style>
 </head>
 <body>
-
-<canvas id="stars"></canvas>
-
-<div class="container">
-  <h1>Space Weather Real-Time Dashboard</h1>
-  <div id="indicatorList" class="list"></div>
-</div>
+<div id="list"></div>
 
 <script>
-// ⭐ фонові літаючі зірки
-const canvas = document.getElementById("stars");
-const ctx = canvas.getContext("2d");
-let w = canvas.width = window.innerWidth;
-let h = canvas.height = window.innerHeight;
-const stars = [];
-for(let i=0;i<600;i++) stars.push({x:Math.random()*w, y:Math.random()*h, z:Math.random()*w});
-function animateStars(){
-  ctx.fillStyle="#000"; ctx.fillRect(0,0,w,h);
-  stars.forEach(s=>{
-    s.z -= 4;
-    if(s.z<=0){ s.z=w; s.x=Math.random()*w; s.y=Math.random()*h; }
-    const k=128/s.z;
-    ctx.fillStyle="white";
-    ctx.fillRect((s.x-w/2)*k+w/2, (s.y-h/2)*k+h/2, (1-s.z/w)*3,(1-s.z/w)*3);
-  });
-  requestAnimationFrame(animateStars);
-}
-animateStars();
-window.onresize=()=>{w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight;};
-
-// 🛰️ завантаження реальних даних з NOAA API
-async function fetchJSON(url){
-  try { let r = await fetch(url); return await r.json(); }
-  catch(e){ console.error("API Fetch Error:", url, e); return null; }
+const list = document.getElementById("list");
+let idx = 1;
+function add(label, value){
+  const d=document.createElement("div");
+  d.className="item";
+  d.textContent = idx + ". " + label + ": " + value;
+  list.appendChild(d);
+  idx++;
 }
 
-function colorFor(val){
-  if(val === null || isNaN(val)) return "yellow";
-  return val < 3 ? "green" : (val < 6 ? "yellow" : "red");
-}
+async function updateSignals(){
+  list.innerHTML=""; idx=1;
 
-async function updateDashboard(){
-  const list = document.getElementById("indicatorList");
-  list.innerHTML = "";
+  try{
+    // ‣ NOAA Solar Wind
+    const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
+    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
+    const aurora = await fetch("https://services.swpc.noaa.gov/products/aurora-forecast.json").then(r=>r.json());
+    const lastPl = plasma.at(-1), lastMag = mag.at(-1);
 
-  const endpoints = {
-    wind:"https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json",
-    mag:"https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json",
-    kp:"https://services.swpc.noaa.gov/json/planetary_k_index_1m.json",
-    f107:"https://services.swpc.noaa.gov/json/f107_cm_flux.json",
-    aurora:"https://services.swpc.noaa.gov/json/ovation_aurora_latest.json",
-    goes_xr:"https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json",
-    goes_pt:"https://services.swpc.noaa.gov/json/goes/primary/particles-1-day.json",
-    dst:"https://services.swpc.noaa.gov/json/geospace_dst_1_hour.json"
-  };
+    add("Solar Wind Speed (km/s)", lastPl[1]);
+    add("Solar Wind Density (p/cm³)", lastPl[2]);
+    add("Solar Wind Temp (K)", lastPl[3]);
+    add("IMF Bz (nT)", lastMag[4]);
+    add("Aurora Forecast Prob Grid Points", aurora.coordinates ? aurora.coordinates.length : "N/A");
 
-  const data = {};
-  for(let key in endpoints){
-    data[key] = await fetchJSON(endpoints[key]);
+    // ‣ Earthquakes (USGS)
+    const eq1h = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
+    const mags = eq1h.features.map(f=>f.properties.mag||0);
+    add("EQ Count (1h)", eq1h.features.length);
+    add("EQ Max Mag (1h)", Math.max(...mags));
+    add("EQ Min Mag (1h)", Math.min(...mags));
+    add("EQ Avg Mag (1h)", (mags.reduce((a,b)=>a+b,0)/Math.max(mags.length,1)).toFixed(2));
+    add("EQ Depth Avg (1h)", (eq1h.features.reduce((a,f)=>a+(f.geometry.coordinates[2]||0),0)/Math.max(eq1h.features.length,1)).toFixed(1));
+
+    // ‣ Cryptocurrency prices (CoinGecko)
+    const crypto = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,cardano,ripple,polkadot,chainlink,tron,litecoin,monero&vs_currencies=usd").then(r=>r.json());
+    for(const key in crypto){
+      add(`Price ${key.toUpperCase()} (USD)`, crypto[key].usd);
+    }
+
+    // ‣ Currency Exchange rates (exchangerate.host)
+    const fx = await fetch("https://api.exchangerate.host/latest?base=USD&symbols=EUR,GBP,JPY,CAD,AUD,CHF,CNY,INR,RUB,BRL").then(r=>r.json());
+    for(const c in fx.rates){
+      add(`USD→${c} rate`, fx.rates[c]);
+    }
+
+    // ‣ Fear & Greed Index
+    const fgData = await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+    add("Fear & Greed Index", fgData.data[0].value);
+
+    // ‣ Open‑Meteo current weather (sample coords Kyiv)
+    const weather = await fetch("https://api.open-meteo.com/v1/forecast?latitude=50&longitude=30&current_weather=true").then(r=>r.json());
+    add("Temp (°C)", weather.current_weather.temperature);
+    add("Wind Speed (m/s)", weather.current_weather.windspeed);
+    add("Wind Dir (°)", weather.current_weather.winddirection);
+    add("Weather Code", weather.current_weather.weathercode);
+
+    // ‣ Reddit r/worldnews
+    const r1 = await fetch("https://www.reddit.com/r/worldnews/.json?limit=50").then(r=>r.json());
+    const titles1 = r1.data.children.map(x=>x.data.title).join(" ");
+    add("Reddit r/worldnews Post Count", r1.data.children.length);
+
+    // ‣ Reddit r/news
+    const r2 = await fetch("https://www.reddit.com/r/news/.json?limit=50").then(r=>r.json());
+    const titles2 = r2.data.children.map(x=>x.data.title).join(" ");
+    add("Reddit r/news Post Count", r2.data.children.length);
+
+    const allTitles = titles1 + " " + titles2;
+    const conflicts = (allTitles.match(/war|attack|conflict|crisis|earthquake|flood/gi) || []).length;
+    add("Reddit Conflict Mentions", conflicts);
+
+    // ‣ Public APIs useful simple metrics
+    // Unix time from a public API
+    const unix = await fetch("https://worldtimeapi.org/api/ip").then(r=>r.json());
+    add("Unix Timestamp", unix.unixtime);
+    add("Day of Week", unix.day_of_week);
+
+    // Nameday (example no key)
+    const nameday = await fetch("https://nameday.abalin.net/get/today").then(r=>r.json());
+    add("Nameday Today (any)", nameday.nameday || "N/A");
+
+    // Public Holidays example (UK)
+    const holidays = await fetch("https://date.nager.at/api/v3/NextPublicHolidaysWorldwide").then(r=>r.json());
+    add("Next Global Holiday (first)", holidays[0]?.localName || "N/A");
+
+    // Time API values
+    add("UTC DateTime", unix.utc_datetime);
+
+    // Country IP geolocation (free)
+    const geo = await fetch("https://api.freegeoip.app/json/?apikey=free").then(r=>r.json()).catch(()=>({country_name:"N/A"}));
+    add("GeoIP Country", geo.country_name);
+
+    // Additional NOAA KP samples length
+    add("NOAA kp-index samples total", kp.length);
+
+    // Earthquake additional
+    add("Largest EQ Time (ISO)", eq1h.features.at(0)?.properties.time || "N/A");
+
+  }catch(e){
+    console.error(e);
+    add("ERROR","Failed to fetch some API");
   }
-
-  const latest = {
-    wind: (data.wind && data.wind.length)? data.wind[data.wind.length-1] : {},
-    mag: (data.mag && data.mag.length)? data.mag[data.mag.length-1] : {},
-    kp: (data.kp && data.kp.length)? data.kp[data.kp.length-1] : {},
-    f107: (data.f107 && data.f107.length)? data.f107[data.f107.length-1] : {},
-    aur: data.aurora || {},
-    xr: (data.goes_xr && data.goes_xr.length)? data.goes_xr[data.goes_xr.length-1] : {},
-    pt: (data.goes_pt && data.goes_pt.length)? data.goes_pt[data.goes_pt.length-1] : {},
-    dst: (data.dst && data.dst.length)? data.dst[0] : {}
-  };
-
-  const indicators = [
-    ["Solar Wind Speed (km/s)", latest.wind.speed],
-    ["Solar Wind Density (p/cm³)", latest.wind.density],
-    ["Solar Wind Temperature", latest.wind.temperature],
-    ["Solar Wind Dynamic Pressure", latest.wind.pressure],
-    ["IMF Bx (nT)", latest.mag.bx_gsm],
-    ["IMF By (nT)", latest.mag.by_gsm],
-    ["IMF Bz (nT)", latest.mag.bz_gsm],
-    ["IMF Total Field (nT)", latest.mag.bt],
-    ["Planetary Kp Index", latest.kp.kp_index],
-    ["Kp 3hr Avg", latest.kp.kp_3hr],
-    ["F10.7 cm Flux", latest.f107.f107_cm],
-    ["Aurora North %", latest.aur.oval_north_pct],
-    ["Aurora South %", latest.aur.oval_south_pct],
-    ["GOES Xray Low", latest.xr.a],
-    ["GOES Xray High", latest.xr.b],
-    ["GOES Proton P1", latest.pt.P1],
-    ["GOES Proton P4", latest.pt.P4],
-    ["GOES Proton P8", latest.pt.P8],
-    ["GOES Electron E0.8", latest.pt.E0_8],
-    ["GOES Electron E2.0", latest.pt.E2_0],
-    ["Geospace DST (nT)", latest.dst.Dst],
-    ["IMF Theta Angle", latest.mag.theta_gsm],
-    ["IMF Phi Angle", latest.mag.phi_gsm],
-    ["Solar Wind Mach Number", latest.wind.mach_num],
-    ["Solar Wind Beta", latest.wind.beta],
-    ["Aurora Energy Input", latest.aur.energy_in],
-    ["Aurora Geo Lat North", latest.aur.geo_lat_north],
-    ["Aurora Geo Lat South", latest.aur.geo_lat_south],
-    ["GOES XR Time", latest.xr.time_tag],
-    ["GOES Part Time", latest.pt.time_tag],
-    ["F10.7 Adjusted", latest.f107.adjusted_f107_cm],
-    ["Dst Last Updated", latest.dst.time_tag],
-    // — додаткові відображення
-    ["Kp Data Source", latest.kp.source],
-    ["Aurora Model Version", latest.aur.model_version],
-    ["GOES Flare Class", latest.xr.flare_class],
-    ["GOES Derivative", latest.xr.derivative],
-    ["F10.7 Year Avg", latest.f107.year_avg],
-    ["Solar Wind Lat Angle", latest.wind.lat_angle],
-    ["Solar Wind Long Angle", latest.wind.long_angle],
-    ["Solar Region Count", latest.f107.region_count],
-    ["Source DST Quality", latest.dst.quality],
-    ["GOES Rad Time", latest.xr.time_tag],
-    ["Aurora Magnetic Local Time", latest.aur.mlt],
-    ["Aurora Magnetic Latitude", latest.aur.mlat],
-    ["Aurora Magnetic Longitude", latest.aur.mlon],
-    ["IMF Magnitude Vector", latest.mag.bt],
-    ["F10.7 Predicted", latest.f107.predicted_f107_cm],
-    ["Solar Wind Tilt Angle", latest.wind.tilt_angle]
-  ];
-
-  indicators.forEach(([name,val])=>{
-    const div = document.createElement("div");
-    div.className = "indicator";
-    div.innerHTML = `<span>${name}: ${val!==undefined?val:"–"}</span><span class="${colorFor(val)}">&#9679;</span>`;
-    list.appendChild(div);
-  });
 }
 
-updateDashboard();
-setInterval(updateDashboard,60000);
+updateSignals();
+setInterval(updateSignals,60000);
 </script>
 
 </body>
