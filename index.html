@@ -8,8 +8,8 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden;display:flex;align-items:center;justify-content:center}
 #stars{position:fixed;inset:0;z-index:0}
-#signal-list{position:relative;z-index:2;width:90%;max-width:600px}
-.indicator{display:flex;justify-content:space-between;padding:6px 8px;margin-bottom:4px;font-size:14px;background:rgba(255,255,255,.05);border-left:4px solid #333}
+#signal-list{position:relative;z-index:2;width:90%;max-width:600px;display:flex;flex-direction:column;gap:6px;}
+.indicator{display:flex;justify-content:space-between;padding:6px 8px;font-size:14px;background:rgba(255,255,255,.05);border-left:4px solid #333}
 .green{border-color:#00ff88;color:#9affd1}
 .yellow{border-color:#ffcc00;color:#fff3a0;animation:pulse 2s infinite}
 .red{border-color:#ff3344;color:#ffb3b8;animation:pulse 1s infinite}
@@ -37,100 +37,92 @@ function draw(){
 }
 draw();
 
-// CORE
-const values=[];
-function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
-function add(name,val){
-  const d=document.createElement("div");
-  d.className=`indicator ${level(val)}`;
-  d.innerHTML=`<span>${name}</span><span>${val}</span>`;
-  signalList.appendChild(d);
-}
-
 // SIGNAL LIST ELEMENT
 const signalList=document.getElementById("signal-list");
 
-// FETCH FUNCTIONS
+// HELPER
+function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
+function add(index,name,val){
+  const d=document.createElement("div");
+  d.className=`indicator ${level(parseFloat(val) || 0)}`;
+  d.innerHTML=`<span>${index}. ${name}</span><span>${val}</span>`;
+  signalList.appendChild(d);
+}
+
+// FETCH SIGNALS
 async function fetchSignals(){
   signalList.innerHTML="";
-  values.length=0;
+  let i=1;
 
-  // 1. Solar Wind Speed (NOAA)
+  // 1. Solar Wind Speed
   try{
     const plasma=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
     const last=plasma.at(-1);
-    add("Solar Wind Speed", Math.min((last[1]/1000).toFixed(2),1));
-  }catch(e){add("Solar Wind Speed","–");}
+    add(i++,"Solar Wind Speed", last[1].toFixed(0)+" km/s");
+  }catch(e){add(i++,"Solar Wind Speed","–");}
 
   // 2. Solar Wind Density
   try{
     const plasma=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
     const last=plasma.at(-1);
-    add("Solar Wind Density", Math.min((last[2]/20).toFixed(2),1));
-  }catch(e){add("Solar Wind Density","–");}
+    add(i++,"Solar Wind Density", last[2].toFixed(2)+" p/cm³");
+  }catch(e){add(i++,"Solar Wind Density","–");}
 
   // 3. IMF Bz
   try{
     const mag=await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
     const last=mag.at(-1);
-    add("IMF Bz (|nT|)", Math.min((Math.abs(last[4])/20).toFixed(2),1));
-  }catch(e){add("IMF Bz (|nT|)","–");}
+    add(i++,"IMF Bz (|nT|)", Math.abs(last[4]).toFixed(2));
+  }catch(e){add(i++,"IMF Bz (|nT|)","–");}
 
   // 4. Planetary Kp Index
   try{
     const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
     const last=kp.at(-1)[1];
-    add("Planetary Kp Index", Math.min((last/9).toFixed(2),1));
-  }catch(e){add("Planetary Kp Index","–");}
+    add(i++,"Planetary Kp Index", last);
+  }catch(e){add(i++,"Planetary Kp Index","–");}
 
-  // 5. Earthquake Count (USGS, last hour)
+  // 5. EQ Count (USGS last hour)
   try{
     const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-    add("EQ Count (hour)", Math.min((eq.features.length/20).toFixed(2),1));
-  }catch(e){add("EQ Count (hour)","–");}
+    add(i++,"EQ Count (hour)", eq.features.length);
+  }catch(e){add(i++,"EQ Count (hour)","–");}
 
-  // 6. Bitcoin Price (Coingecko)
+  // 6. Bitcoin Price
   try{
     const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd").then(r=>r.json());
-    add("Bitcoin USD", Math.min((p.bitcoin.usd/100000).toFixed(2),1));
-  }catch(e){add("Bitcoin USD","–");}
+    add(i++,"Bitcoin USD", "$"+p.bitcoin.usd.toLocaleString());
+  }catch(e){add(i++,"Bitcoin USD","–");}
 
-  // 7. Ethereum Price (Coingecko)
+  // 7. Ethereum Price
   try{
     const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd").then(r=>r.json());
-    add("Ethereum USD", Math.min((p.ethereum.usd/10000).toFixed(2),1));
-  }catch(e){add("Ethereum USD","–");}
+    add(i++,"Ethereum USD", "$"+p.ethereum.usd.toLocaleString());
+  }catch(e){add(i++,"Ethereum USD","–");}
 
-  // 8. Fear & Greed Index
+  // 8. Fear & Greed
   try{
     const fgRaw=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
-    const fg=parseFloat(fgRaw.data[0].value)/100;
-    add("Fear & Greed", fg.toFixed(2));
-  }catch(e){add("Fear & Greed","–");}
+    const fg=parseFloat(fgRaw.data[0].value);
+    add(i++,"Fear & Greed Index", fg);
+  }catch(e){add(i++,"Fear & Greed Index","–");}
 
-  // 9. Reddit Worldnews Post Count
+  // 9. Reddit r/worldnews
   try{
     const r=await fetch("https://www.reddit.com/r/worldnews/.json?limit=50").then(r=>r.json());
-    add("Reddit r/worldnews Posts", r.data.children.length);
-  }catch(e){add("Reddit r/worldnews Posts","–");}
+    add(i++,"Reddit r/worldnews Posts", r.data.children.length);
+  }catch(e){add(i++,"Reddit r/worldnews Posts","–");}
 
-  // 10. Reddit News Post Count
+  // 10. Reddit r/news
   try{
     const r=await fetch("https://www.reddit.com/r/news/.json?limit=50").then(r=>r.json());
-    add("Reddit r/news Posts", r.data.children.length);
-  }catch(e){add("Reddit r/news Posts","–");}
-
-  // 11. Random NOAA Kp Alert (имитація)
-  try{
-    const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-    add("NOAA Kp Alert", kp.at(-1)[1]);
-  }catch(e){add("NOAA Kp Alert","–");}
+    add(i++,"Reddit r/news Posts", r.data.children.length);
+  }catch(e){add(i++,"Reddit r/news Posts","–");}
 }
 
 // INITIAL CALL & LOOP
 fetchSignals();
 setInterval(fetchSignals,60000);
 </script>
-
 </body>
 </html>
