@@ -3,26 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Space Weather Live Dashboard</title>
+<title>Космічний Дашборд — Space Weather Live</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
   body {
     margin: 0;
-    background: #000;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: #000;
     color: #fff;
-    font-family: 'Courier New', monospace;
   }
-  canvas { position: fixed; top:0; left:0; z-index:0; }
-  .container { position:relative; z-index:1; max-width:1000px; margin:auto; padding:20px; }
-  h1 { text-align:center; color:#cfefff; }
-  .list { max-height:80vh; overflow-y:auto; padding-right:10px; }
+  canvas { position: fixed; top:0; left:0; width:100%; height:100%; z-index: 0; }
+  .container { position: relative; z-index: 1; padding: 20px; max-width: 1100px; margin: auto; }
+  h1 { text-align: center; font-size: 2rem; font-weight: 700; margin-bottom: 16px; color: #e0eaff; }
+  .list { max-height: 80vh; overflow-y: scroll; padding-right: 12px; }
   .indicator {
-    display:flex; justify-content:space-between;
-    padding:8px; margin:4px 0; border-radius:4px;
-    background:rgba(255,255,255,0.05); font-size:13px;
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    margin: 6px 0;
+    font-size: 14px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.06);
   }
-  .green { color:#0f0; }
-  .yellow { color:#ff0; }
-  .red { color:#f00; }
+  .green { color: #0f0; }
+  .yellow { color: #ff0; }
+  .red { color: #f00; }
 </style>
 </head>
 <body>
@@ -30,127 +37,136 @@
 <canvas id="stars"></canvas>
 
 <div class="container">
-  <h1>Live Space Weather Dashboard</h1>
+  <h1>Space Weather Real-Time Dashboard</h1>
   <div id="indicatorList" class="list"></div>
 </div>
 
 <script>
-// ⭐ анімація зірок
-const c = document.getElementById('stars');
-const ctx = c.getContext('2d');
-let w = c.width = window.innerWidth, h = c.height = window.innerHeight;
+// ⭐ фонові літаючі зірки
+const canvas = document.getElementById("stars");
+const ctx = canvas.getContext("2d");
+let w = canvas.width = window.innerWidth;
+let h = canvas.height = window.innerHeight;
 const stars = [];
-for(let i=0;i<500;i++) stars.push({x:Math.random()*w, y:Math.random()*h, z:Math.random()*w});
-function draw(){
+for(let i=0;i<600;i++) stars.push({x:Math.random()*w, y:Math.random()*h, z:Math.random()*w});
+function animateStars(){
   ctx.fillStyle="#000"; ctx.fillRect(0,0,w,h);
-  stars.forEach(s => {
+  stars.forEach(s=>{
     s.z -= 4;
     if(s.z<=0){ s.z=w; s.x=Math.random()*w; s.y=Math.random()*h; }
-    const k = 128/s.z;
+    const k=128/s.z;
     ctx.fillStyle="white";
-    ctx.fillRect((s.x-w/2)*k+w/2,(s.y-h/2)*k+h/2,(1-s.z/w)*3,(1-s.z/w)*3);
+    ctx.fillRect((s.x-w/2)*k+w/2, (s.y-h/2)*k+h/2, (1-s.z/w)*3,(1-s.z/w)*3);
   });
-  requestAnimationFrame(draw);
+  requestAnimationFrame(animateStars);
 }
-draw();
-window.onresize=()=>{w=c.width=window.innerWidth;h=c.height=window.innerHeight;};
+animateStars();
+window.onresize=()=>{w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight;};
 
+// 🛰️ завантаження реальних даних з NOAA API
 async function fetchJSON(url){
-  try { const r=await fetch(url); return await r.json(); }
-  catch(e){ console.error("Fetch failed: "+url,e); return null;}
+  try { let r = await fetch(url); return await r.json(); }
+  catch(e){ console.error("API Fetch Error:", url, e); return null; }
 }
 
-function col(v){
-  if(v===null || isNaN(v)) return "yellow";
-  if(v < 3) return "green";
-  if(v < 6) return "yellow";
-  return "red";
+function colorFor(val){
+  if(val === null || isNaN(val)) return "yellow";
+  return val < 3 ? "green" : (val < 6 ? "yellow" : "red");
 }
 
-async function update(){
-  const list = document.getElementById('indicatorList');
+async function updateDashboard(){
+  const list = document.getElementById("indicatorList");
   list.innerHTML = "";
 
-  // 📌 fetch data from SWPC
-  const wind  = await fetchJSON("https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json");
-  const mag   = await fetchJSON("https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json");
-  const kp    = await fetchJSON("https://services.swpc.noaa.gov/json/planetary_k_index_1m.json");
-  const f107  = await fetchJSON("https://services.swpc.noaa.gov/json/f107_cm_flux.json");
-  const aur   = await fetchJSON("https://services.swpc.noaa.gov/json/ovation_aurora_latest.json");
-  const xrays = await fetchJSON("https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json");
-  const parts = await fetchJSON("https://services.swpc.noaa.gov/json/goes/primary/particles-1-day.json");
+  const endpoints = {
+    wind:"https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json",
+    mag:"https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json",
+    kp:"https://services.swpc.noaa.gov/json/planetary_k_index_1m.json",
+    f107:"https://services.swpc.noaa.gov/json/f107_cm_flux.json",
+    aurora:"https://services.swpc.noaa.gov/json/ovation_aurora_latest.json",
+    goes_xr:"https://services.swpc.noaa.gov/json/goes/primary/xrays-1-day.json",
+    goes_pt:"https://services.swpc.noaa.gov/json/goes/primary/particles-1-day.json",
+    dst:"https://services.swpc.noaa.gov/json/geospace_dst_1_hour.json"
+  };
 
-  const latestWind = wind && wind.length ? wind[wind.length-1] : {};
-  const latestMag  = mag && mag.length ? mag[mag.length-1] : {};
-  const latestKp   = kp && kp.length ? kp[kp.length-1] : {};
-  const latestF107 = f107 && f107.length ? f107[f107.length-1] : {};
-  const latestXR   = xrays && xrays.length ? xrays[xrays.length-1] : {};
-  const latestParts= parts && parts.length ? parts[parts.length-1] : {};
+  const data = {};
+  for(let key in endpoints){
+    data[key] = await fetchJSON(endpoints[key]);
+  }
 
-  // Масив з 50 реальних показників
+  const latest = {
+    wind: (data.wind && data.wind.length)? data.wind[data.wind.length-1] : {},
+    mag: (data.mag && data.mag.length)? data.mag[data.mag.length-1] : {},
+    kp: (data.kp && data.kp.length)? data.kp[data.kp.length-1] : {},
+    f107: (data.f107 && data.f107.length)? data.f107[data.f107.length-1] : {},
+    aur: data.aurora || {},
+    xr: (data.goes_xr && data.goes_xr.length)? data.goes_xr[data.goes_xr.length-1] : {},
+    pt: (data.goes_pt && data.goes_pt.length)? data.goes_pt[data.goes_pt.length-1] : {},
+    dst: (data.dst && data.dst.length)? data.dst[0] : {}
+  };
+
   const indicators = [
-    ["Solar Wind Speed (km/s)", latestWind.speed],
-    ["Solar Wind Density (p/cm³)", latestWind.density],
-    ["IMF Btx (nT)", latestMag.bx_gsm],
-    ["IMF Bty (nT)", latestMag.by_gsm],
-    ["IMF Btz (nT)", latestMag.bz_gsm],
-    ["Solar Wind Temperature", latestWind.temperature],
-    ["Solar Wind Flow Pressure", latestWind.pressure],
-    ["GSM Btotal (nT)", latestMag.bt],
-    ["Planetary Kp Index", latestKp.kp_index],
-    ["F10.7 cm Solar Radio Flux", latestF107.f107_cm],
-    ["Aurora Prob Northern", aur.oval_north_pct],
-    ["Aurora Prob Southern", aur.oval_south_pct],
-    ["X-ray Low (W/m2)", latestXR.a],
-    ["X-ray High (W/m2)", latestXR.b],
-    ["GOES Proton Flux P1", latestParts.P1],
-    ["GOES Proton Flux P4", latestParts.P4],
-    ["GOES Proton Flux P8", latestParts.P8],
-    ["GOES Electron Flux E0.8", latestParts.E0_8],
-    ["GOES Electron Flux E2.0", latestParts.E2_0],
-    ["GOES Electron Flux E4.0", latestParts.E4_0],
-    ["GOES Electron Flux E9.0", latestParts.E9_0],
-    ["Kp Index 3h Avg", latestKp.kp_3hr],
-    ["Solar Wind Drift Speed", latestWind.drift_speed],
-    ["IMF Theta Angle (°)", latestMag.theta_gsm],
-    ["IMF Phi Angle (°)", latestMag.phi_gsm],
-    ["XR Flare Class", latestXR.flare_class],
-    ["XR Flux Derivative", latestXR.derivative],
-    ["Proton Flux High E", latestParts.P10],
-    ["Electron Flux Ultra", latestParts.E13_6],
-    ["Solar Cycle Day", latestF107.daynum],
-    ["F10.7 Adjusted", latestF107.adjusted_f107_cm],
-    ["Aurora Lat North", aur.geo_lat_north],
-    ["Aurora Lat South", aur.geo_lat_south],
-    ["GOES Time (ms)", latestXR.time_tag],
-    ["Planetary Kp Flag", latestKp.flag],
-    ["Solar Wind Mach Number", latestWind.mach_num],
-    ["Dynamic Pressure", latestWind.dyn_pressure],
-    ["Beta Parameter", latestWind.beta],
-    ["GOES Particle Time", latestParts.time_tag],
-    ["F10.7 Year Avg", latestF107.year_avg],
-    ["IMF Total Field", latestMag.bt], // повторно як окремий
-    ["Solar Wind Lat Angle", latestWind.lat_angle],
-    ["Solar Wind Lon Angle", latestWind.long_angle],
-    ["Solar Wind Charge State", latestWind.charge_state],
-    ["Mag Field Quality", latestMag.quality],
-    ["Kp Source", latestKp.source],
-    ["Aurora Energy Dep", aur.energy_in],
-    ["XR Time (UTC)", latestXR.time_tag]
+    ["Solar Wind Speed (km/s)", latest.wind.speed],
+    ["Solar Wind Density (p/cm³)", latest.wind.density],
+    ["Solar Wind Temperature", latest.wind.temperature],
+    ["Solar Wind Dynamic Pressure", latest.wind.pressure],
+    ["IMF Bx (nT)", latest.mag.bx_gsm],
+    ["IMF By (nT)", latest.mag.by_gsm],
+    ["IMF Bz (nT)", latest.mag.bz_gsm],
+    ["IMF Total Field (nT)", latest.mag.bt],
+    ["Planetary Kp Index", latest.kp.kp_index],
+    ["Kp 3hr Avg", latest.kp.kp_3hr],
+    ["F10.7 cm Flux", latest.f107.f107_cm],
+    ["Aurora North %", latest.aur.oval_north_pct],
+    ["Aurora South %", latest.aur.oval_south_pct],
+    ["GOES Xray Low", latest.xr.a],
+    ["GOES Xray High", latest.xr.b],
+    ["GOES Proton P1", latest.pt.P1],
+    ["GOES Proton P4", latest.pt.P4],
+    ["GOES Proton P8", latest.pt.P8],
+    ["GOES Electron E0.8", latest.pt.E0_8],
+    ["GOES Electron E2.0", latest.pt.E2_0],
+    ["Geospace DST (nT)", latest.dst.Dst],
+    ["IMF Theta Angle", latest.mag.theta_gsm],
+    ["IMF Phi Angle", latest.mag.phi_gsm],
+    ["Solar Wind Mach Number", latest.wind.mach_num],
+    ["Solar Wind Beta", latest.wind.beta],
+    ["Aurora Energy Input", latest.aur.energy_in],
+    ["Aurora Geo Lat North", latest.aur.geo_lat_north],
+    ["Aurora Geo Lat South", latest.aur.geo_lat_south],
+    ["GOES XR Time", latest.xr.time_tag],
+    ["GOES Part Time", latest.pt.time_tag],
+    ["F10.7 Adjusted", latest.f107.adjusted_f107_cm],
+    ["Dst Last Updated", latest.dst.time_tag],
+    // — додаткові відображення
+    ["Kp Data Source", latest.kp.source],
+    ["Aurora Model Version", latest.aur.model_version],
+    ["GOES Flare Class", latest.xr.flare_class],
+    ["GOES Derivative", latest.xr.derivative],
+    ["F10.7 Year Avg", latest.f107.year_avg],
+    ["Solar Wind Lat Angle", latest.wind.lat_angle],
+    ["Solar Wind Long Angle", latest.wind.long_angle],
+    ["Solar Region Count", latest.f107.region_count],
+    ["Source DST Quality", latest.dst.quality],
+    ["GOES Rad Time", latest.xr.time_tag],
+    ["Aurora Magnetic Local Time", latest.aur.mlt],
+    ["Aurora Magnetic Latitude", latest.aur.mlat],
+    ["Aurora Magnetic Longitude", latest.aur.mlon],
+    ["IMF Magnitude Vector", latest.mag.bt],
+    ["F10.7 Predicted", latest.f107.predicted_f107_cm],
+    ["Solar Wind Tilt Angle", latest.wind.tilt_angle]
   ];
 
-  indicators.forEach(item=>{
-    const d = document.createElement("div");
-    d.className = "indicator";
-    const value = item[1] ?? null;
-    const color = col(value);
-    d.innerHTML = `<span>${item[0]}: ${value!==null?value:"–"}</span> <span class="${color}">&#9679;</span>`;
-    list.appendChild(d);
+  indicators.forEach(([name,val])=>{
+    const div = document.createElement("div");
+    div.className = "indicator";
+    div.innerHTML = `<span>${name}: ${val!==undefined?val:"–"}</span><span class="${colorFor(val)}">&#9679;</span>`;
+    list.appendChild(div);
   });
 }
 
-update(); 
-setInterval(update, 60000); // оновлення кожні 60 сек
+updateDashboard();
+setInterval(updateDashboard,60000);
 </script>
 
 </body>
