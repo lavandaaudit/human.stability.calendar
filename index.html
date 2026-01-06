@@ -46,7 +46,7 @@ font-size:16px;border:1px solid rgba(255,255,255,.25)
 </div>
 
 <script>
-// STARFIELD (без змін)
+// STARFIELD
 const sc=document.getElementById("stars"),ctx=sc.getContext("2d");
 let stars=[];
 function resize(){
@@ -81,9 +81,14 @@ function add(el,name,val){
   el.appendChild(d);
 }
 
-const cosmosEl=cosmos,planetEl=planet,economyEl=economy,socialEl=social;
+// DOM
+const cosmosEl=document.getElementById("cosmos");
+const planetEl=document.getElementById("planet");
+const economyEl=document.getElementById("economy");
+const socialEl=document.getElementById("social");
+const system=document.getElementById("system");
 
-// COSMOS (РОЗШИРЕНО)
+// COSMOS
 async function cosmos(){
   const plasma=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
   const mag=await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
@@ -97,24 +102,20 @@ async function cosmos(){
   add(cosmosEl,"IMF Bz",Math.min(Math.abs(mag.at(-1)[4])/20,1));
   add(cosmosEl,"Planetary Kp",Math.min(kp.at(-1)[1]/9,1));
   add(cosmosEl,"Solar X-ray Flux",Math.min(xray.at(-1).flux/1e-4,1));
-  add(cosmosEl,"Proton Flux",Math.min(proton.at(-1)["10MeV"]/100,1));
-  add(cosmosEl,"Aurora Probability",Math.min(aurora.coordinates[0].probability/100,1));
+  add(cosmosEl,"Proton Flux",Math.min(proton.at(-1).flux/100,1));
+
+  const aur=aurora.Forecast.flat();
+  const avgAur=aur.reduce((a,b)=>a+b,0)/aur.length;
+  add(cosmosEl,"Aurora Probability",Math.min(avgAur/100,1));
 }
 
-// PLANET (РОЗШИРЕНО)
+// PLANET
 async function planet(){
   const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-  const volcanoRSS=await fetch("https://volcano.si.edu/news/WeeklyVolcanoRSS.xml").then(r=>r.text());
-
-  const eqCount=eq.features.length;
-  const volcanoCount=(volcanoRSS.match(/<item>/g)||[]).length;
-
-  add(planetEl,"EQ Count (hour)",Math.min(eqCount/20,1));
-  add(planetEl,"Volcanic Alerts",Math.min(volcanoCount/10,1));
-  add(planetEl,"Climate Noise",Math.min((eqCount+volcanoCount)/25,1));
+  add(planetEl,"EQ Count (hour)",Math.min(eq.features.length/20,1));
 }
 
-// ECONOMY (без змін)
+// ECONOMY
 async function economy(){
   const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
   const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
@@ -123,7 +124,7 @@ async function economy(){
   add(economyEl,"Fear & Greed",fg.data[0].value/100);
 }
 
-// SOCIAL (без змін)
+// SOCIAL
 async function social(){
   const urls=[
     "https://www.reddit.com/r/worldnews/.json?limit=100",
@@ -152,7 +153,8 @@ async function tick(){
   systemState();
 }
 
-tick(); setInterval(tick,60000);
+tick();
+setInterval(tick,60000);
 </script>
 </body>
 </html>
