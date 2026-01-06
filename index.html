@@ -5,121 +5,118 @@
 <title>ibonarium.stability.human.lab.live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{
-    width:100%;
-    height:100%;
-    background:#000;
-    color:#cfefff;
-    font-family:Inter,monospace;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-  }
-  #signals-container{
-    width:80vw;
-    max-height:90vh; /* максимум по висоті екрану */
-    overflow-y:auto; /* додаємо вертикальний скрол */
-    display:flex;
-    justify-content:center; /* центруємо по горизонталі */
-  }
-  #signals{
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-    width:100%;
-  }
-  .signal{
-    display:flex;
-    justify-content:space-between;
-    padding:4px 8px;
-    border-left:4px solid #333;
-  }
-  .green{border-color:#00ff88;color:#9affd1}
-  .yellow{border-color:#ffcc00;color:#fff3a0}
-  .red{border-color:#ff3344;color:#ffb3b8}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  width:100%;height:100%;
+  background:#000;color:#cfefff;
+  font-family:Inter,monospace;
+}
+body{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+#wrap{
+  width:80vw;
+  max-height:90vh;
+  overflow-y:auto;
+}
+.item{
+  padding:6px 10px;
+  border-left:4px solid #333;
+  margin-bottom:4px;
+}
+.green{border-color:#00ff88;color:#9affd1}
+.yellow{border-color:#ffcc00;color:#fff3a0}
+.red{border-color:#ff3344;color:#ffb3b8}
 </style>
 </head>
 <body>
 
-<div id="signals-container">
-  <div id="signals"></div>
-</div>
+<div id="wrap"></div>
 
 <script>
-const signalsEl = document.getElementById("signals");
+const el = document.getElementById("wrap");
+let index = 1;
 
-// кольорова шкала
-function level(v){ return v<0.4?"green":v<0.7?"yellow":"red"; }
-function addSignal(name,val){ 
+function level(v, t1, t2){
+  return v<t1?"green":v<t2?"yellow":"red";
+}
+function add(label,value,cls){
   const d=document.createElement("div");
-  d.className="signal "+level(val);
-  d.innerHTML=name+": "+(val*100).toFixed(1);
-  signalsEl.appendChild(d);
+  d.className="item "+cls;
+  d.textContent=`${index}. ${label}: ${value}`;
+  el.appendChild(d);
+  index++;
 }
 
-// головна функція для отримання 25 сигналів
-async function fetchSignals(){
-  signalsEl.innerHTML="";
+async function load(){
+el.innerHTML=""; index=1;
 
-  // 1-6 COSMOS (NOAA)
-  try{
-    const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
-    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
-    const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
-    const lastPl = plasma.at(-1), lastMag = mag.at(-1), lastKp = kp.at(-1)[1];
+/* ========== COSMOS (NOAA) ========== */
+const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json").then(r=>r.json());
+const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json").then(r=>r.json());
+const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
 
-    addSignal("1. Solar Wind Speed", Math.min(lastPl[1]/1000,1));
-    addSignal("2. Solar Wind Density", Math.min(lastPl[2]/20,1));
-    addSignal("3. IMF Bz", Math.min(Math.abs(lastMag[4])/20,1));
-    addSignal("4. Planetary Kp Index", Math.min(lastKp/9,1));
-    addSignal("5. Solar X-ray Flux", Math.random());
-    addSignal("6. Proton Flux", Math.random());
-  }catch(e){ console.error(e); }
+const pl = plasma.at(-1);
+const mg = mag.at(-1);
+const kpVal = kp.at(-1)[1];
 
-  // 7-11 PLANET
-  try{
-    const eq = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-    addSignal("7. EQ Count (hour)", Math.min(eq.features.length/20,1));
-    for(let i=8;i<=11;i++) addSignal(i+". Planetary Data", Math.random());
-  }catch(e){ console.error(e); }
+add("Solar Wind Speed (km/s)", pl[1], level(pl[1],400,700));
+add("Solar Wind Density (p/cm³)", pl[2], level(pl[2],5,15));
+add("IMF Bz (nT)", mg[4], level(Math.abs(mg[4]),5,10));
+add("Planetary Kp Index", kpVal, level(kpVal,3,6));
 
-  // 12-15 CLIMATE / ENVIRONMENT
-  for(let i=12;i<=15;i++) addSignal(i+". Climate/Env Data", Math.random());
+/* ========== PLANET ========== */
+const eq1h = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
+const eqDay = await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson").then(r=>r.json());
 
-  // 16-19 ECONOMY
-  try{
-    const btc = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd").then(r=>r.json());
-    const eth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd").then(r=>r.json());
-    const fgRaw = await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
-    const fg = parseFloat(fgRaw.data[0].value)/100;
+add("Earthquakes (last hour)", eq1h.features.length, level(eq1h.features.length,5,15));
+add("Earthquakes (24h)", eqDay.features.length, level(eqDay.features.length,50,150));
 
-    addSignal("16. Bitcoin Price", Math.min(btc.bitcoin.usd/100000,1));
-    addSignal("17. Ethereum Price", Math.min(eth.ethereum.usd/10000,1));
-    addSignal("18. Fear & Greed Index", Math.min(fg,1));
-    addSignal("19. Gold Price", Math.random());
-  }catch(e){ console.error(e); }
+/* ========== ECONOMY (REAL PRICES) ========== */
+const prices = await fetch(
+"https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,gold&vs_currencies=usd"
+).then(r=>r.json());
 
-  // 20-25 SOCIAL / NEWS
-  try{
-    const urls=["https://www.reddit.com/r/worldnews/.json?limit=50","https://www.reddit.com/r/news/.json?limit=50"];
-    let titles="";
-    for(const url of urls){
-      const data = await fetch(url).then(r=>r.json());
-      titles += data.data.children.map(a=>a.data.title).join(" ");
-    }
-    const totalPosts = titles.split(/\s+/).length;
-    const conflictCount = (titles.match(/war|conflict|attack|crisis|earthquake|flood/gi)||[]).length;
+add("Bitcoin USD", prices.bitcoin.usd, level(prices.bitcoin.usd,30000,60000));
+add("Ethereum USD", prices.ethereum.usd, level(prices.ethereum.usd,1500,3000));
 
-    addSignal("20. News Intensity", Math.min(totalPosts/1000,1));
-    addSignal("21. Conflict Tone", Math.min(conflictCount/50,1));
-    for(let i=22;i<=25;i++) addSignal(i+". Social Data", Math.random());
-  }catch(e){ console.error(e); }
+const fg = await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
+add("Fear & Greed Index", fg.data[0].value, level(fg.data[0].value,40,70));
+
+/* ========== WEATHER / CLIMATE ========== */
+const weather = await fetch(
+"https://api.open-meteo.com/v1/forecast?latitude=50&longitude=30&current_weather=true"
+).then(r=>r.json());
+
+add("Air Temperature (°C)", weather.current_weather.temperature, level(weather.current_weather.temperature,0,30));
+add("Wind Speed (m/s)", weather.current_weather.windspeed, level(weather.current_weather.windspeed,5,15));
+
+/* ========== SOCIAL (REAL COUNTS) ========== */
+const r1 = await fetch("https://www.reddit.com/r/worldnews/.json?limit=100").then(r=>r.json());
+const r2 = await fetch("https://www.reddit.com/r/news/.json?limit=100").then(r=>r.json());
+
+const titles = [...r1.data.children, ...r2.data.children].map(x=>x.data.title).join(" ");
+const conflict = (titles.match(/war|attack|crisis|conflict|strike/gi)||[]).length;
+
+add("Reddit worldnews posts", r1.data.children.length, level(r1.data.children.length,30,70));
+add("Reddit news posts", r2.data.children.length, level(r2.data.children.length,30,70));
+add("Conflict keywords (count)", conflict, level(conflict,20,60));
+
+/* ========== EXTRA REAL SIGNALS ========== */
+add("NOAA Data Points (plasma rows)", plasma.length, level(plasma.length,50,200));
+add("Geomagnetic Samples", mag.length, level(mag.length,50,200));
+add("Kp Records", kp.length, level(kp.length,20,60));
+add("EQ Max Magnitude (24h)",
+Math.max(...eqDay.features.map(f=>f.properties.mag||0)),
+level(Math.max(...eqDay.features.map(f=>f.properties.mag||0)),4,6)
+);
+
 }
 
-// початковий запуск і оновлення кожну хвилину
-fetchSignals();
-setInterval(fetchSignals,60000);
+load();
+setInterval(load,60000);
 </script>
 
 </body>
