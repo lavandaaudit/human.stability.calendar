@@ -10,9 +10,9 @@
 html,body{width:100%;height:100%;background:#000;color:#cfefff;font-family:Inter,monospace;overflow:hidden}
 
 #stars{position:fixed;inset:0;z-index:0}
-#ui{position:relative;z-index:2;display:grid;grid-template-columns:420px 1fr;height:100%}
+#ui{position:relative;z-index:2;display:flex;height:100%}
 
-#left{padding:18px;overflow-y:auto}
+#left{padding:18px;width:420px;overflow-y:auto}
 h1{font-size:16px;letter-spacing:2px;opacity:.8;margin-bottom:12px}
 .section{margin-bottom:18px}
 .section h2{font-size:12px;opacity:.7;margin-bottom:6px}
@@ -33,19 +33,6 @@ border-left:4px solid #333
 margin-top:20px;padding:12px;text-align:center;
 font-size:16px;border:1px solid rgba(255,255,255,.25)
 }
-
-#charts{
-padding:16px;
-display:grid;
-grid-template-columns:repeat(3,1fr);
-grid-template-rows:repeat(4,1fr);
-gap:10px;
-background:#0b0f14;
-}
-canvas.chart{
-background:rgba(255,255,255,.03);
-border:1px solid rgba(255,255,255,.08)
-}
 </style>
 </head>
 
@@ -64,16 +51,7 @@ border:1px solid rgba(255,255,255,.08)
 
 <div id="system"></div>
 </div>
-
-<div id="charts">
-<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
-<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
-<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
-<canvas class="chart"></canvas><canvas class="chart"></canvas><canvas class="chart"></canvas>
 </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
 /* STARFIELD */
@@ -114,59 +92,42 @@ d.innerHTML=`<span>${name}</span><span>${(val*100).toFixed(1)}</span>`;
 el.appendChild(d)
 }
 
-/* CHARTS */
-const charts=[];
-const buffers=Array.from({length:12},()=>[]);
-document.querySelectorAll(".chart").forEach((c,i)=>{
-charts[i]=new Chart(c,{
-type:"line",
-data:{labels:[],datasets:[{data:[],borderWidth:2,borderColor:'#00ffff',backgroundColor:'rgba(0,255,255,0.2)'}]},
-options:{
-responsive:true,
-animation:false,
-plugins:{legend:{display:false}},
-scales:{x:{display:false},y:{display:true,ticks:{color:'white'}},yAxes:[{ticks:{color:'white'}}]}
-}
-})
-});
-function pushChart(i,val){
-const b=buffers[i];
-b.push(val);if(b.length>60)b.shift();
-charts[i].data.labels=b.map(()=> "");
-charts[i].data.datasets[0].data=b;
-charts[i].update();
-}
-
-/* FETCH & CALC */
+/* FETCH & DISPLAY DATA */
 async function cosmos(){
+try{
 const sw=await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
 const kp=await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
 const l=sw.at(-1);const v1=l[2]/800;const v2=l[1]/50;const v3=Math.abs(l[4])/10;const v4=kp.at(-1)[1]/9;
-add(cosmosEl,"Solar Wind Speed",v1);pushChart(0,v1);
-add(cosmosEl,"Solar Wind Density",v2);pushChart(1,v2);
-add(cosmosEl,"IMF Bz",v3);pushChart(2,v3);
-add(cosmosEl,"Kp Index",v4);pushChart(3,v4);
+add(cosmosEl,"Solar Wind Speed",v1);
+add(cosmosEl,"Solar Wind Density",v2);
+add(cosmosEl,"IMF Bz",v3);
+add(cosmosEl,"Kp Index",v4);
+}catch(e){console.error("COSMOS API error", e);}
 }
 
 async function planet(){
+try{
 const eq=await fetch("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson").then(r=>r.json());
-const v5=Math.random();const v6=Math.random();
+const v5=Math.random(),v6=Math.random();
 const v7=Math.min(eq.features.length/20,1);const v8=Math.random();
-add(planetEl,"Pressure Anomaly",v5);pushChart(4,v5);
-add(planetEl,"Wind Anomaly",v6);pushChart(5,v6);
-add(planetEl,"EQ Count",v7);pushChart(6,v7);
-add(planetEl,"Seismic Energy",v8);pushChart(7,v8);
+add(planetEl,"Pressure Anomaly",v5);
+add(planetEl,"Wind Anomaly",v6);
+add(planetEl,"EQ Count",v7);
+add(planetEl,"Seismic Energy",v8);
+}catch(e){console.error("PLANET API error", e);}
 }
 
 async function economy(){
+try{
 const p=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd").then(r=>r.json());
 const fg=await fetch("https://api.allorigins.win/raw?url=https://api.alternative.me/fng/").then(r=>r.json());
 const v9=p.bitcoin.usd/100000;const v10=p.ethereum.usd/10000;
 const v11=fg.data[0].value/100;const v12=(v9+v10+v11)/3;
-add(economyEl,"Bitcoin",v9);pushChart(8,v9);
-add(economyEl,"Ethereum",v10);pushChart(9,v10);
-add(economyEl,"Fear & Greed",v11);pushChart(10,v11);
-add(economyEl,"Market Stress",v12);pushChart(11,v12);
+add(economyEl,"Bitcoin",v9);
+add(economyEl,"Ethereum",v10);
+add(economyEl,"Fear & Greed",v11);
+add(economyEl,"Market Stress",v12);
+}catch(e){console.error("ECONOMY API error", e);}
 }
 
 function social(){
