@@ -101,7 +101,7 @@ drawStars();
 
 // ================== INDICATORS ==================
 const listEl = document.getElementById("list");
-const indicators = {}; // ключ = назва індикатора, значення = div
+const indicators = {};
 
 function level(v){
   if(v<0.4) return 'green';
@@ -109,7 +109,7 @@ function level(v){
   return 'red';
 }
 
-function addOrUpdate(name, val, normVal= Math.random()){
+function addOrUpdate(name, val, normVal=0.5){
   if(indicators[name]){
     indicators[name].textContent = `${name}: ${val}`;
     indicators[name].className = `indicator ${level(normVal)}`;
@@ -151,21 +151,31 @@ async function fetchData(){
 
     // --- SOLAR CYCLE / SUNSPOTS ---
     const solarCycle = await fetch("https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-index.json").then(r=>r.json());
-    const sunspotNumber = solarCycle.observed_solar_cycle_index?.slice(-1)[0]?.sunspot_number || "N/A";
-    addOrUpdate("Sunspot Number", sunspotNumber, Math.min(1, sunspotNumber/200));
+    const obsIndex = solarCycle.observed_solar_cycle_index;
+    if(obsIndex && obsIndex.length>0){
+      const sunspotNumber = obsIndex[obsIndex.length-1].sunspot_number || 0;
+      addOrUpdate("Sunspot Number", sunspotNumber, Math.min(1, sunspotNumber/200));
+    } else {
+      addOrUpdate("Sunspot Number", "N/A", 0.5);
+    }
 
     // --- SOLAR FLARES ---
     const flares = await fetch("https://services.swpc.noaa.gov/json/goes/primary/xray-flares.json").then(r=>r.json());
-    const lastFlare = flares.slice(-1)[0];
-    const flareClass = lastFlare?.class_type || "N/A";
-    addOrUpdate("Last Solar Flare", flareClass, flareClass==="X"?1:flareClass==="M"?0.7:0.4);
+    if(flares && flares.length>0){
+      const lastFlare = flares[flares.length-1];
+      const flareClass = lastFlare?.class_type || "N/A";
+      const normVal = flareClass==="X"?1:flareClass==="M"?0.7:flareClass==="C"?0.4:0.5;
+      addOrUpdate("Last Solar Flare", flareClass, normVal);
+    } else {
+      addOrUpdate("Last Solar Flare", "N/A", 0.5);
+    }
 
   }catch(e){ console.error("API Error", e); }
 }
 
 // --- INIT ---
 fetchData();
-setInterval(fetchData, 60000); // оновлення щохвилини
+setInterval(fetchData, 60000);
 </script>
 
 </body>
