@@ -4,123 +4,220 @@
 <meta charset="UTF-8">
 <title>ibonarium.stability.human.lab.live</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html, body {
+html,body{
   width:100%;
   height:100%;
   background:#000;
   color:#cfefff;
   font-family:Inter, monospace;
   overflow:hidden;
+}
+
+/* ===== LAYOUT ===== */
+#wrap{
+  position:relative;
+  width:100%;
+  height:100%;
   display:flex;
   justify-content:center;
   align-items:center;
 }
-#list {
+
+#panel{
+  position:relative;
+  width:92%;
+  height:88%;
+  display:flex;
+  gap:24px;
+}
+
+/* ===== LEFT LIST ===== */
+#list{
+  width:38%;
   display:flex;
   flex-direction:column;
+  justify-content:center;
+  gap:8px;
+}
+
+/* ===== RIGHT DIAGRAM ===== */
+#diagram{
+  width:62%;
+  height:100%;
+  display:flex;
   align-items:center;
-  gap:10px;
+  justify-content:center;
 }
-.indicator {
-  font-size:16px;
-  padding:4px 8px;
-  background:none;
-  text-align:center;
-  transition: color 0.5s ease;
+
+#breath{
+  width:100%;
+  height:80%;
 }
-.green { color:#00ff88; }
-.yellow { color:#fff3a0; animation:pulse 2s infinite; }
-.red { color:#ffb3b8; animation:pulse 1s infinite; }
+
+/* ===== INDICATORS ===== */
+.indicator{
+  font-size:15px;
+  padding:3px 6px;
+  text-align:left;
+  transition:color .5s ease;
+}
+.green{color:#00ff88;}
+.yellow{color:#fff3a0;animation:pulse 2s infinite;}
+.red{color:#ffb3b8;animation:pulse 1s infinite;}
+
 @keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
-#stars { position:fixed; top:0; left:0; width:100%; height:100%; z-index:-1; background:#000; }
-canvas { display:block; }
+
+/* ===== STARS ===== */
+#stars{
+  position:fixed;
+  inset:0;
+  z-index:-1;
+}
+canvas{display:block;}
 </style>
 </head>
+
 <body>
 
 <canvas id="stars"></canvas>
-<div id="list"></div>
+
+<div id="wrap">
+  <div id="panel">
+    <div id="list"></div>
+    <div id="diagram">
+      <canvas id="breath"></canvas>
+    </div>
+  </div>
+</div>
 
 <script>
 // ================== STARS ==================
-const canvas = document.getElementById('stars');
-const ctx = canvas.getContext('2d');
-let w = canvas.width = window.innerWidth;
-let h = canvas.height = window.innerHeight;
-window.addEventListener('resize', ()=>{ w=canvas.width=window.innerWidth; h=canvas.height=window.innerHeight; });
-
-const numStars = 300;
-const stars = [];
-for(let i=0;i<numStars;i++){
-  stars.push({x:Math.random()*w - w/2, y:Math.random()*h - h/2, z:Math.random()*w, color:`hsl(${Math.random()*360},80%,80%)`});
-}
+const sc=document.getElementById("stars"),sctx=sc.getContext("2d");
+function resizeStars(){sc.width=innerWidth;sc.height=innerHeight}
+resizeStars();addEventListener("resize",resizeStars);
+const stars=[...Array(300)].map(()=>({x:(Math.random()-.5)*innerWidth,y:(Math.random()-.5)*innerHeight,z:Math.random()*innerWidth}));
 function drawStars(){
-  ctx.fillStyle='black';
-  ctx.fillRect(0,0,w,h);
-  for(let i=0;i<numStars;i++){
-    let s=stars[i];
-    s.z-=2;
-    if(s.z<=0){s.z=w; s.x=Math.random()*w - w/2; s.y=Math.random()*h - h/2; s.color=`hsl(${Math.random()*360},80%,80%)`;}
-    let sx=(s.x/s.z)*w+w/2, sy=(s.y/s.z)*h+h/2, r=(1-s.z/w)*3;
-    ctx.beginPath(); ctx.fillStyle=s.color; ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fill();
-  }
+  sctx.fillStyle="#000";sctx.fillRect(0,0,sc.width,sc.height);
+  stars.forEach(s=>{
+    s.z-=2;if(s.z<1){s.z=innerWidth;s.x=(Math.random()-.5)*innerWidth;s.y=(Math.random()-.5)*innerHeight}
+    const k=500/s.z,x=s.x*k+sc.width/2,y=s.y*k+sc.height/2;
+    sctx.fillStyle="white";sctx.fillRect(x,y,1.5,1.5);
+  });
   requestAnimationFrame(drawStars);
 }
 drawStars();
 
 // ================== INDICATORS ==================
 const listEl=document.getElementById("list");
-const indicators={};
-function level(v){ if(v<0.4) return 'green'; if(v<0.7) return 'yellow'; return 'red'; }
-function addOrUpdate(name,val,normVal=0.5){
-  if(indicators[name]){indicators[name].textContent=`${name}: ${val}`; indicators[name].className=`indicator ${level(normVal)}`;}
-  else{const d=document.createElement("div"); d.className=`indicator ${level(normVal)}`; d.textContent=`${name}: ${val}`; listEl.appendChild(d); indicators[name]=d;}
+const indicators={},history={};
+const MAX_POINTS=120;
+
+function level(v){return v<0.4?"green":v<0.7?"yellow":"red"}
+
+function remember(n,v){
+  if(!history[n])history[n]=[];
+  history[n].push(v);
+  if(history[n].length>MAX_POINTS)history[n].shift();
 }
 
-// ================== FETCH JSON через CORS-proxy ==================
-async function fetchJSON(url){
+function addOrUpdate(n,val,norm=0.5){
+  remember(n,norm);
+  if(indicators[n]){
+    indicators[n].textContent=`${n}: ${val}`;
+    indicators[n].className=`indicator ${level(norm)}`;
+  }else{
+    const d=document.createElement("div");
+    d.className=`indicator ${level(norm)}`;
+    d.textContent=`${n}: ${val}`;
+    listEl.appendChild(d);
+    indicators[n]=d;
+  }
+}
+
+// ================== FETCH ==================
+async function fetchJSON(u){
   try{
-    const res=await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(url));
-    const data=await res.json();
-    return JSON.parse(data.contents);
-  }catch(e){console.error("Fetch Error:",url,e); return null;}
+    const r=await fetch("https://api.allorigins.win/get?url="+encodeURIComponent(u));
+    const j=await r.json();
+    return JSON.parse(j.contents);
+  }catch{return null;}
 }
 
-// ================== FETCH DATA ==================
+// ================== DATA ==================
 async function fetchData(){
-  try{
-    // --- COSMOS ---
-    const plasma=await fetchJSON("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json");
-    const mag=await fetchJSON("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json");
-    const kp=await fetchJSON("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json");
+  const plasma=await fetchJSON("https://services.swpc.noaa.gov/products/solar-wind/plasma-6-hour.json");
+  const mag=await fetchJSON("https://services.swpc.noaa.gov/products/solar-wind/mag-6-hour.json");
+  const kp=await fetchJSON("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json");
 
-    if(plasma && plasma.length>0){const last=plasma.at(-1); addOrUpdate("Solar Wind Speed (km/s)", last[1], Math.min(1,last[1]/1000)); addOrUpdate("Solar Wind Density (/cc)", last[2], Math.min(1,last[2]/50)); addOrUpdate("Solar Wind Temp (K)", last[3], Math.min(1,last[3]/200000)); }
-    if(mag && mag.length>0){const last=mag.at(-1); addOrUpdate("IMF Bz (nT)", last[4], Math.min(1,Math.abs(last[4])/20)); }
-    if(kp && kp.length>0){const last=kp.at(-1)[1]; addOrUpdate("Kp Index", last, Math.min(1,last/9)); }
+  if(plasma?.length){
+    const l=plasma.at(-1);
+    addOrUpdate("Solar Wind Speed (km/s)",l[1],Math.min(1,l[1]/1000));
+    addOrUpdate("Solar Wind Density (/cc)",l[2],Math.min(1,l[2]/50));
+    addOrUpdate("Solar Wind Temp (K)",l[3],Math.min(1,l[3]/200000));
+    addOrUpdate("Solar Wind Pressure (nPa)",l[6],Math.min(1,l[6]/10));
+  }
 
-    // --- PLANET ---
-    const eq=await fetchJSON("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson");
-    if(eq && eq.features){ addOrUpdate("EQ Count (hour)", eq.features.length, Math.min(1, eq.features.length/10)); addOrUpdate("Max EQ Magnitude", Math.max(...eq.features.map(e=>e.properties.mag||0))/10); addOrUpdate("Min EQ Magnitude", Math.min(...eq.features.map(e=>e.properties.mag||0))/10); const lastEQ=eq.features.at(-1); addOrUpdate("Recent EQ Latitude", lastEQ?.geometry.coordinates[1]||"N/A",0.5); addOrUpdate("Recent EQ Longitude", lastEQ?.geometry.coordinates[0]||"N/A",0.5); }
+  if(mag?.length){
+    const l=mag.at(-1);
+    addOrUpdate("IMF Bz (nT)",l[4],Math.min(1,Math.abs(l[4])/20));
+    addOrUpdate("IMF Bt (nT)",l[1],Math.min(1,l[1]/30));
+    addOrUpdate("IMF By (nT)",l[3],Math.min(1,Math.abs(l[3])/20));
+  }
 
-    // --- SOLAR CYCLE / SUNSPOTS ---
-    const solarCycle=await fetchJSON("https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-index.json");
-    const obsIndex=solarCycle?.observed_solar_cycle_index;
-    if(obsIndex && obsIndex.length>0){ const sn=obsIndex.at(-1).sunspot_number||0; addOrUpdate("Sunspot Number", sn, Math.min(1,sn/200)); }
-    else addOrUpdate("Sunspot Number","N/A",0.5);
+  if(kp?.length)addOrUpdate("Kp Index",kp.at(-1)[1],kp.at(-1)[1]/9);
 
-    // --- SOLAR FLARES ---
-    const flares=await fetchJSON("https://services.swpc.noaa.gov/json/goes/primary/xray-flares.json");
-    if(flares && flares.length>0){ const lf=flares.at(-1); const fc=lf?.class_type||"N/A"; const norm=fc==="X"?1:fc==="M"?0.7:fc==="C"?0.4:0.5; addOrUpdate("Last Solar Flare",fc,norm); }
-    else addOrUpdate("Last Solar Flare","N/A",0.5);
+  const eq=await fetchJSON("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson");
+  if(eq?.features){
+    addOrUpdate("EQ Count (hour)",eq.features.length,Math.min(1,eq.features.length/10));
+  }
 
-  }catch(e){console.error("Data Error",e);}
+  const dst=await fetchJSON("https://services.swpc.noaa.gov/json/kyoto-dst.json");
+  if(dst?.length)addOrUpdate("Dst Index (nT)",dst.at(-1).dst,Math.min(1,Math.abs(dst.at(-1).dst)/200));
+
+  const ae=await fetchJSON("https://services.swpc.noaa.gov/json/ae-index.json");
+  if(ae?.length)addOrUpdate("AE Index",ae.at(-1).ae,Math.min(1,ae.at(-1).ae/2000));
+
+  const p=await fetchJSON("https://services.swpc.noaa.gov/json/goes/primary/integral-protons.json");
+  if(p?.length)addOrUpdate("Proton Flux >10 MeV",p.at(-1).flux,Math.min(1,p.at(-1).flux/1000));
+
+  const e=await fetchJSON("https://services.swpc.noaa.gov/json/goes/primary/integral-electrons.json");
+  if(e?.length)addOrUpdate("Electron Flux >2 MeV",e.at(-1).flux,Math.min(1,e.at(-1).flux/10000));
+
+  const alerts=await fetchJSON("https://services.swpc.noaa.gov/json/alerts.json");
+  const g=alerts?.find(a=>a.product_id?.startsWith("G"));
+  if(g){
+    const n={G1:.3,G2:.5,G3:.7,G4:.9,G5:1}[g.product_id]||.3;
+    addOrUpdate("Geomagnetic Storm Level",g.product_id,n);
+  }
 }
+fetchData();setInterval(fetchData,60000);
 
-// --- INIT ---
-fetchData();
-setInterval(fetchData,60000);
+// ================== BREATH DIAGRAM ==================
+const bc=document.getElementById("breath"),bctx=bc.getContext("2d");
+function resizeBreath(){bc.width=bc.clientWidth;bc.height=bc.clientHeight}
+resizeBreath();addEventListener("resize",resizeBreath);
+
+function drawBreath(){
+  bctx.clearRect(0,0,bc.width,bc.height);
+  let i=0;
+  for(const k in history){
+    const d=history[k];if(d.length<2)continue;
+    bctx.beginPath();
+    bctx.strokeStyle=`hsla(${i*23%360},80%,70%,0.6)`;
+    bctx.lineWidth=1;
+    d.forEach((v,j)=>{
+      const x=j/(MAX_POINTS-1)*bc.width;
+      const y=bc.height/2 - v*120 + i*5;
+      j?bctx.lineTo(x,y):bctx.moveTo(x,y);
+    });
+    bctx.stroke();i++;
+  }
+  requestAnimationFrame(drawBreath);
+}
+drawBreath();
 </script>
 
 </body>
