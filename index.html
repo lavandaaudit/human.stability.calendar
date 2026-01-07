@@ -15,15 +15,27 @@
   box-sizing: border-box;
 }
 
+/* BASE */
 html, body {
   width: 100%;
   height: 100%;
   background: #000;
   color: #cfefff;
   font-family: Inter, system-ui, monospace;
+  overflow: hidden;
 }
 
+/* STAR BACKGROUND */
+canvas#stars {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+/* UI LAYER */
 .wrapper {
+  position: relative;
+  z-index: 2;
   width: 100%;
   height: 100%;
   display: flex;
@@ -32,32 +44,35 @@ html, body {
 }
 
 .panel {
-  width: 96%;
-  height: 92%;
+  width: 94%;
+  height: 90%;
   display: flex;
-  gap: 24px;
+  gap: 16px;
+  backdrop-filter: blur(2px);
 }
 
 /* LEFT */
 .left {
-  width: 40%;
+  width: 42%;
   height: 100%;
   border: 1px solid #0ff3;
-  padding: 20px;
+  padding: 14px;
   overflow-y: auto;
+  background: rgba(0,0,0,0.55);
 }
 
 .left h2 {
-  font-size: 22px;
-  margin-bottom: 16px;
+  font-size: 16px;
+  margin-bottom: 12px;
   text-align: center;
   color: #7fffd4;
+  letter-spacing: 1px;
 }
 
 .indicator {
-  margin-bottom: 14px;
-  font-size: 16px;
-  line-height: 1.5;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .indicator span {
@@ -66,23 +81,37 @@ html, body {
 
 /* RIGHT */
 .right {
-  width: 60%;
+  width: 58%;
   height: 100%;
   border: 1px solid #0ff3;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  padding: 10px;
+  background: rgba(0,0,0,0.55);
 }
 
-canvas {
+.right canvas {
   width: 100% !important;
   height: 100% !important;
+}
+
+/* MOBILE */
+@media (max-width: 900px) {
+  .panel {
+    flex-direction: column;
+  }
+  .left, .right {
+    width: 100%;
+    height: 50%;
+  }
 }
 </style>
 </head>
 
 <body>
+
+<!-- STARFIELD -->
+<canvas id="stars"></canvas>
+
+<!-- UI -->
 <div class="wrapper">
   <div class="panel">
 
@@ -119,6 +148,44 @@ canvas {
 </div>
 
 <script>
+/* ===== STARFIELD ===== */
+const s = document.getElementById("stars");
+const ctxS = s.getContext("2d");
+let W, H, stars = [];
+
+function resizeStars() {
+  W = s.width = innerWidth;
+  H = s.height = innerHeight;
+  stars = Array.from({ length: 140 }, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    z: Math.random() * W
+  }));
+}
+resizeStars();
+addEventListener("resize", resizeStars);
+
+function drawStars() {
+  ctxS.fillStyle = "#000";
+  ctxS.fillRect(0,0,W,H);
+  ctxS.fillStyle = "#4dd2ff";
+
+  for (let st of stars) {
+    st.z -= 0.15;
+    if (st.z <= 0) st.z = W;
+    const k = 128 / st.z;
+    const x = (st.x - W/2) * k + W/2;
+    const y = (st.y - H/2) * k + H/2;
+    if (x > 0 && x < W && y > 0 && y < H) {
+      const size = (1 - st.z / W) * 1.6;
+      ctxS.fillRect(x, y, size, size);
+    }
+  }
+  requestAnimationFrame(drawStars);
+}
+drawStars();
+
+/* ===== CHART ===== */
 const labels = [];
 const dataBt = [];
 const dataBz = [];
@@ -130,64 +197,37 @@ const ctx = document.getElementById('breathChart').getContext('2d');
 const breathChart = new Chart(ctx, {
   type: 'line',
   data: {
-    labels: labels,
+    labels,
     datasets: [
-      {
-        label: 'IMF Bt (nT)',
-        data: dataBt,
-        borderWidth: 2,
-        tension: 0.4
-      },
-      {
-        label: 'IMF Bz (nT)',
-        data: dataBz,
-        borderWidth: 2,
-        tension: 0.4
-      },
-      {
-        label: 'Dynamic Pressure (nPa)',
-        data: dataPressure,
-        borderWidth: 2,
-        tension: 0.4
-      },
-      {
-        label: 'Kp Index',
-        data: dataKp,
-        borderWidth: 2,
-        tension: 0.4
-      }
+      { label: 'IMF Bt (nT)', data: dataBt, borderWidth: 1.5, tension: 0.4 },
+      { label: 'IMF Bz (nT)', data: dataBz, borderWidth: 1.5, tension: 0.4 },
+      { label: 'Dynamic Pressure (nPa)', data: dataPressure, borderWidth: 1.5, tension: 0.4 },
+      { label: 'Kp Index', data: dataKp, borderWidth: 1.5, tension: 0.4 }
     ]
   },
   options: {
     responsive: true,
     maintainAspectRatio: false,
     scales: {
-      x: {
-        ticks: { color: '#9ff' },
-        grid: { color: '#033' }
-      },
-      y: {
-        ticks: { color: '#9ff' },
-        grid: { color: '#033' }
-      }
+      x: { ticks: { color: '#9ff', font:{size:10} }, grid:{ color:'#033' } },
+      y: { ticks: { color: '#9ff', font:{size:10} }, grid:{ color:'#033' } }
     },
     plugins: {
-      legend: {
-        labels: { color: '#cff' }
-      }
+      legend: { labels: { color:'#cff', font:{size:11} } }
     }
   }
 });
 
+/* ===== DATA ===== */
 async function updateData() {
   try {
-    const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r => r.json());
-    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-1-day.json").then(r => r.json());
-    const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r => r.json());
+    const plasma = await fetch("https://services.swpc.noaa.gov/products/solar-wind/plasma-1-day.json").then(r=>r.json());
+    const mag = await fetch("https://services.swpc.noaa.gov/products/solar-wind/mag-1-day.json").then(r=>r.json());
+    const kp = await fetch("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json").then(r=>r.json());
 
-    const p = plasma[plasma.length - 1];
-    const m = mag[mag.length - 1];
-    const k = kp[kp.length - 1];
+    const p = plasma.at(-1);
+    const m = mag.at(-1);
+    const k = kp.at(-1);
 
     const time = new Date().toLocaleTimeString();
 
@@ -200,36 +240,34 @@ async function updateData() {
       dataKp.shift();
     }
 
-    dataBt.push(parseFloat(m[6]));
-    dataBz.push(parseFloat(m[5]));
-    dataPressure.push(parseFloat(p[7]));
-    dataKp.push(parseFloat(k[1]));
+    dataBt.push(+m[6]);
+    dataBz.push(+m[5]);
+    dataPressure.push(+p[7]);
+    dataKp.push(+k[1]);
 
-    document.getElementById("sw_speed").textContent = p[2];
-    document.getElementById("sw_density").textContent = p[1];
-    document.getElementById("sw_temp").textContent = p[3];
+    sw_speed.textContent = p[2];
+    sw_density.textContent = p[1];
+    sw_temp.textContent = p[3];
+    imf_bt.textContent = m[6];
+    imf_bz.textContent = m[5];
+    imf_by.textContent = m[4];
+    pressure.textContent = p[7];
+    kp.textContent = k[1];
 
-    document.getElementById("imf_bt").textContent = m[6];
-    document.getElementById("imf_bz").textContent = m[5];
-    document.getElementById("imf_by").textContent = m[4];
+    dst.textContent = "NOAA realtime";
+    ae.textContent = "Auroral active";
+    proton_flux.textContent = "GOES";
+    electron_flux.textContent = "GOES";
 
-    document.getElementById("pressure").textContent = p[7];
-    document.getElementById("kp").textContent = k[1];
-
-    document.getElementById("dst").textContent = "NOAA Dst realtime";
-    document.getElementById("ae").textContent = "Auroral activity active";
-    document.getElementById("proton_flux").textContent = "SWPC GOES";
-    document.getElementById("electron_flux").textContent = "SWPC GOES";
-
-    const kpVal = parseFloat(k[1]);
-    document.getElementById("storm").textContent =
+    const kpVal = +k[1];
+    storm.textContent =
       kpVal >= 8 ? "G4–G5" :
       kpVal >= 7 ? "G3" :
       kpVal >= 6 ? "G2" :
       kpVal >= 5 ? "G1" : "Quiet";
 
     breathChart.update();
-  } catch (e) {
+  } catch(e) {
     console.error("DATA ERROR", e);
   }
 }
@@ -237,5 +275,6 @@ async function updateData() {
 updateData();
 setInterval(updateData, 60000);
 </script>
+
 </body>
 </html>
