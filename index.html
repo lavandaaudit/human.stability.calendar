@@ -80,16 +80,16 @@
             gap: 14px;
         }
         .chart-container {
-            flex: 0.8; /* Зменшено верхній графік */
-            min-height: 180px; /* Менше по висоті */
+            flex: 0.8; 
+            min-height: 180px; 
         }
         canvas {
             width: 100% !important;
             height: 100% !important;
         }
         .spectrogram-container {
-            flex: 2; /* Значно більше місця для спектрограми */
-            min-height: 420px; /* Більше по висоті */
+            flex: 2; 
+            min-height: 420px; 
             position: relative;
         }
         iframe {
@@ -281,13 +281,19 @@ async function updateData() {
 
     const time = new Date().toLocaleTimeString();
 
-    labels.push(time);
-    if (labels.length > 30) { labels.shift(); dataBt.shift(); dataBz.shift(); dataPressure.shift(); dataKp.shift(); }
-
     const bt = parseFloat(m[6]) || 0;
     const bz = parseFloat(m[3]) || 0;
-    const pressure = parseFloat(p[7]) || 0;
-    const kpVal = parseFloat(k[1]) || 0;
+    
+    // Розрахунок динамічного тиску: P = 1.67e-6 * density * speed^2
+    const dens = parseFloat(p[1]) || 0;
+    const speed = parseFloat(p[2]) || 0;
+    const pressure = parseFloat((dens * Math.pow(speed, 2) * 0.00000167).toFixed(2)) || 0;
+    
+    // Виправлення доступу до Кр (об'єктний формат)
+    const kpVal = parseFloat(k.Kp) || 0;
+
+    labels.push(time);
+    if (labels.length > 30) { labels.shift(); dataBt.shift(); dataBz.shift(); dataPressure.shift(); dataKp.shift(); }
 
     dataBt.push(bt);
     dataBz.push(bz);
@@ -300,8 +306,8 @@ async function updateData() {
     document.getElementById("imf_bt").textContent = m[6] || '—';
     document.getElementById("imf_bz").textContent = m[3] || '—';
     document.getElementById("imf_by").textContent = m[2] || '—';
-    document.getElementById("pressure").textContent = p[7] || '—';
-    document.getElementById("kp").textContent = k[1] || '—';
+    document.getElementById("pressure").textContent = pressure.toFixed(2);
+    document.getElementById("kp").textContent = kpVal.toFixed(2);
 
     document.getElementById("dst").textContent = "NOAA Dst realtime";
     document.getElementById("ae").textContent = "Auroral activity active";
@@ -314,15 +320,13 @@ async function updateData() {
       kpVal >= 6 ? "G2" :
       kpVal >= 5 ? "G1" : "Quiet";
 
-    // Алерти для основних показників
-    setAlert('sw_speed', parseFloat(p[2]) > 700 ? 'yellow' : parseFloat(p[2]) > 1000 ? 'red' : 'green');
+    setAlert('sw_speed', speed > 700 ? 'yellow' : speed > 1000 ? 'red' : 'green');
     setAlert('imf_bz', bz > -5 ? 'green' : bz > -10 ? 'yellow' : 'red');
     setAlert('imf_bt', bt < 20 ? 'green' : bt < 30 ? 'yellow' : 'red');
     setAlert('pressure', pressure < 5 ? 'green' : pressure < 10 ? 'yellow' : 'red');
     setAlert('kp', kpVal < 4 ? 'green' : kpVal < 6 ? 'yellow' : 'red');
     setAlert('storm', document.getElementById("storm").textContent === "Quiet" ? 'green' : document.getElementById("storm").textContent.includes("G1") || document.getElementById("storm").textContent.includes("G2") ? 'yellow' : 'red');
 
-    // Дані про спалахи
     const xray = await fetch("https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json").then(r => r.json());
     const latestXray = xray[xray.length - 1];
     const flux = latestXray.flux;
@@ -337,7 +341,7 @@ async function updateData() {
     const flares = await fetch("https://kauai.ccmc.gsfc.nasa.gov/DONKI/WS/get/FLR").then(r => r.json());
     const now = Date.now();
     const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-    const recentFlares = flares.filter(f => new Date(f.peakTime) > sevenDaysAgo);
+    const recentFlares = Array.isArray(flares) ? flares.filter(f => new Date(f.peakTime) > sevenDaysAgo) : [];
     const xFlares = recentFlares.filter(f => f.classType && f.classType.startsWith('X'));
     document.getElementById("x_flares_count").textContent = xFlares.length;
 
@@ -352,7 +356,6 @@ async function updateData() {
       document.getElementById("strongest_flare").textContent = "None";
     }
 
-    // Алерти для flare.activity
     const flareLevel = flareClass.startsWith('C') ? 'green' : flareClass.startsWith('M') ? 'yellow' : flareClass.startsWith('X') ? 'red' : 'green';
     setAlert('flare_class', flareLevel);
     setAlert('x_flares_count', xFlares.length === 0 ? 'green' : xFlares.length <= 2 ? 'yellow' : 'red');
@@ -377,3 +380,4 @@ setInterval(updateData, 60000);
 </script>
 </body>
 </html>
+
